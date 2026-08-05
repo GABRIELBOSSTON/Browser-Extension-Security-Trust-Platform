@@ -1,0 +1,33 @@
+[package]
+name = "antigraviiti-extension-protect"
+version = "0.1.0"
+description = "Antigraviiti Extension Protect (AEP) Desktop Agent Core"
+authors = ["Antigraviiti Security Engineering Team"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0.0", features = [] }
+tauri-plugin-shell = "2.0.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rusqlite = { version = "0.31", features = ["bundled"] }
+tokio = { version = "1.37", features = ["full"] }
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+uuid = { version = "1.8", features = ["v4"] }
+tokio-util = "0.7"
+swc_common = "0.33"
+swc_ecma_parser = "0.145"
+swc_ecma_ast = "0.114"
+swc_ecma_visit = "0.99"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
