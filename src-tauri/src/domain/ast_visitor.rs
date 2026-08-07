@@ -14,6 +14,9 @@ pub enum AstNodeKind {
     ClassDeclaration,
     ArrowFunction,
     NewExpression,
+    ImportExpression,
+    StringLiteral,
+    TemplateLiteral,
 }
 
 #[derive(Debug, Clone)]

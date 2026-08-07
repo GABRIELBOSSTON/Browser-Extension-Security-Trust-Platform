@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
-use crate::domain::risk::{RiskAssessment, RiskProfile};
+use crate::domain::risk::RiskProfile;
+use crate::domain::risk_calculator::RiskAssessment;
 use crate::domain::entities::{DiscoveredExtension, Manifest};
 use crate::domain::capabilities::ExtensionCapabilityModel;
-use crate::application::rules::RuleEvaluationResult;
+use crate::application::rules::models::RuleEvaluationResult;
 use std::collections::HashMap;
 
 /// Result of a single stage's execution

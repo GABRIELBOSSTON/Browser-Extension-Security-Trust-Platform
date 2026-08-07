@@ -1,5 +1,5 @@
 use super::walker::ASTWalker;
-use crate::infrastructure::ast::swc_walker::SWCAstWalker;
+use crate::infrastructure::ast_walker::swc_walker::SWCAstWalker;
 
 pub enum WalkerBackend {
     RecursiveWalker,

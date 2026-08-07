@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use super::types::{BrowserFamily, BrowserChannel, PermissionType, RiskScore, Severity};
+use super::types::PermissionType;
 
 use std::collections::HashMap;
 
@@ -102,6 +102,9 @@ pub struct DiscoveredExtension {
     pub browser_family: super::types::BrowserFamily,
     pub browser_channel: super::types::BrowserChannel,
     pub install_path: String,
+    pub profile_name: String,
+    pub disabled: bool,
+    pub policy_installed: bool,
     pub manifest: Option<Manifest>,
 }
 

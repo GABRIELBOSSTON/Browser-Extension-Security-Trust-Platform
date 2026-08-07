@@ -1,4 +1,4 @@
-use extension_protect::infrastructure::scanner::DiscoveryEngine;
+use antigraviiti_extension_protect::infrastructure::scanner::DiscoveryEngine;
 use std::time::Instant;
 
 fn main() {
@@ -13,7 +13,7 @@ fn main() {
     println!("Scan Duration: {:?}", duration);
     println!("\nBrowsers Detected:");
     for result in &results {
-        println!("- {:?}", result.browser_type);
+        println!("- {:?}", result.browser_family);
         if let Some(err) = &result.error {
             println!("  Error: {}", err);
         }

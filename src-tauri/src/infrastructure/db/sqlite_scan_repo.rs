@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use chrono::{DateTime, Utc, TimeZone};
+use chrono::{Utc, TimeZone};
 use uuid::Uuid;
 use crate::domain::persistence::{ScanRepository, ScanRecord, ScanId, ScanReport};
 use crate::domain::errors::{DomainError, Result};

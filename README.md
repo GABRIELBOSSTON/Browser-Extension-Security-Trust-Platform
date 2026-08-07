@@ -549,6 +549,20 @@ This project is currently under a **proprietary license**. License terms will be
 - [**Tailwind CSS**](https://tailwindcss.com/) — Utility-first CSS framework
 - The global browser extension security research community whose published findings on DOM harvesting, supply-chain attacks, and permission abuse patterns directly informed AEP's detection rules
 
+## Development Setup
+
+- **Node.js**: Minimum version 18+ (for frontend toolchain).
+- **Rust**: Latest stable version (via `rustup`).
+- **Visual Studio Build Tools**: Required for Windows (MSVC).
+- **SQLite**: Required for local database functionality.
+- **npm install**: Install frontend dependencies.
+- **cargo check**: Verify Rust dependencies in `src-tauri`.
+- **cargo tauri dev**: Start the development server.
+
+## Project Assets
+
+> **Note**: The `src-tauri/icons/` folder is a **mandatory** part of the repository because it is strictly required by the Tauri build process. If the icons folder is removed or omitted from version control, the build will fail.
+
 ---
 
 <p align="center">

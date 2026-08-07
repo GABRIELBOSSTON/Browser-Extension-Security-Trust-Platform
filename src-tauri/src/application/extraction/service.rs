@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::sync::Arc;
-use crate::domain::extraction::{SandboxContext, SandboxManager, ArchiveExtractorRegistry, SandboxValidator};
+use crate::domain::extraction::{SandboxManager, ArchiveExtractorRegistry, SandboxValidator};
 use crate::domain::errors::{DomainError, Result};
 use crate::infrastructure::extraction::sandbox::SandboxHandle;
 

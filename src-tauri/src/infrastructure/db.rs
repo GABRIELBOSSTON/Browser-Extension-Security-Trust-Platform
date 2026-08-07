@@ -1,11 +1,12 @@
 use rusqlite::Connection;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing::{info, warn};
+use tracing::info;
 use std::sync::MutexGuard;
 use crate::domain::errors::{DomainError, Result};
 
 pub mod sqlite_scan_repo;
+pub mod sqlite_audit_repo;
 
 /// Abstract Connection Provider
 pub trait ConnectionProvider: Send + Sync {

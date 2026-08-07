@@ -42,6 +42,17 @@ pub struct RuleSet {
     pub rules: Vec<Rule>,
 }
 
+impl Default for RuleSet {
+    fn default() -> Self {
+        Self {
+            version: "1.0".to_string(),
+            checksum: String::new(),
+            source: "local".to_string(),
+            rules: Vec::new(),
+        }
+    }
+}
+
 /// Evidence value object detailing what triggered the rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Evidence {

@@ -114,7 +114,7 @@ impl AstDetector for DangerousApiDetector {
             }
         }
 
-        let statistics = DangerousApiStatistics {
+        let _statistics = DangerousApiStatistics {
             total_calls,
             unique_calls: unique_apis.len(),
             unknown_calls,
@@ -124,7 +124,7 @@ impl AstDetector for DangerousApiDetector {
             timer_string_calls,
         };
 
-        let inventory = DangerousApiInventory {
+        let _inventory = DangerousApiInventory {
             calls: std::mem::take(&mut self.calls),
             unique_apis_used: unique_apis,
         };

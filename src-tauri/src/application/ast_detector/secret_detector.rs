@@ -103,14 +103,14 @@ impl AstDetector for SecretDetector {
             *matches_by_type.entry(secret_match.secret_type.clone()).or_insert(0) += 1;
         }
 
-        let statistics = SecretStatistics {
+        let _statistics = SecretStatistics {
             total_matches,
             unique_matches: unique_secret_ids.len(),
             unknown_matches,
             matches_by_type,
         };
 
-        let inventory = SecretInventory {
+        let _inventory = SecretInventory {
             matches: std::mem::take(&mut self.matches),
             unique_secret_ids,
         };

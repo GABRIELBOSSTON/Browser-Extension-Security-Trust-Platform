@@ -1,6 +1,6 @@
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
+use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
 use crate::domain::extraction::{ArchiveExtractor, SandboxContext};
 use crate::domain::errors::{DomainError, Result};
 use super::zip_extractor::ZipExtractor;
@@ -33,7 +33,7 @@ impl ArchiveExtractor for CrxExtractor {
         file.read_exact(&mut version_bytes).map_err(|_| DomainError::CorruptedArchive)?;
         let version = u32::from_le_bytes(version_bytes);
 
-        let mut header_size = 0;
+        let header_size;
 
         if version == 2 {
             let mut pubkey_len_bytes = [0u8; 4];

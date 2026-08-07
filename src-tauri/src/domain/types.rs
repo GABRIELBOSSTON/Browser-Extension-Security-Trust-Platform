@@ -51,6 +51,7 @@ pub enum BrowserFamily {
     Brave,
     Opera,
     Firefox,
+    Unknown,
 }
 
 /// Browser Release Channels

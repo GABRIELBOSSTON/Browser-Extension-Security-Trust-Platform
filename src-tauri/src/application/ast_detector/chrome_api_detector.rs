@@ -114,7 +114,7 @@ impl AstDetector for ChromeApiDetector {
 
         let unique_calls = unique_apis.len();
         
-        let statistics = ChromeApiStatistics {
+        let _statistics = ChromeApiStatistics {
             total_calls,
             unique_calls,
             unknown_calls,
@@ -122,7 +122,7 @@ impl AstDetector for ChromeApiDetector {
             callback_calls,
         };
 
-        let inventory = ChromeApiInventory {
+        let _inventory = ChromeApiInventory {
             calls: std::mem::take(&mut self.calls),
             unique_apis_used: unique_apis,
             most_frequent_category: Some(ChromeApiCategory::Storage), // Simulated mode computation

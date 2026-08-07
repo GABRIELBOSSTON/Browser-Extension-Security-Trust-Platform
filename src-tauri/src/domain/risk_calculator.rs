@@ -1,29 +1,21 @@
 use serde::{Deserialize, Serialize};
-use crate::domain::rule_matcher::{FindingId, RuleId};
 use crate::domain::types::{RiskScore, Severity};
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum AggregationPolicy {
-    Once,  // Flat weight regardless of count
-    Sum,   // Weight * Count
-    Max,   // Maximum weight in the subset
-    Decay, // Geometric decay asymptote
-}
+use crate::domain::rules::AggregationPolicy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskRuleConfig {
-    pub rule_id: RuleId,
+    pub rule_id: String,
     pub base_weight: f64,
     pub policy: AggregationPolicy,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskBreakdown {
-    pub rule_id: RuleId,
+    pub rule_id: String,
     pub findings_count: usize,
     pub applied_policy: AggregationPolicy,
     pub cumulative_weight: f64,
-    pub associated_finding_ids: Vec<FindingId>,
+    pub associated_finding_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

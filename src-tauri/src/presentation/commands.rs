@@ -1,5 +1,6 @@
 use serde::Serialize;
 use tauri::State;
+use crate::infrastructure::db::ConnectionProvider;
 use std::sync::Arc;
 use crate::infrastructure::DatabaseManager;
 use crate::presentation::state::AppState;
@@ -84,6 +85,8 @@ pub async fn scan_extension(
 
     let target = DiscoveredExtension {
         extension_id: request.extension_id,
+        name: "Unknown Extension".to_string(),
+        manifest: None,
         browser_family: family,
         browser_channel: BrowserChannel::Stable, // Default
         profile_name: "Default".to_string(),
@@ -93,7 +96,7 @@ pub async fn scan_extension(
         policy_installed: false,
     };
 
-    let risk_profile = crate::domain::risk::RiskProfile::default();
+    let risk_profile = crate::domain::risk::RiskProfile::Default;
     let cancel_token = CancellationToken::new();
 
     let pipeline = state.analysis_pipeline.clone();

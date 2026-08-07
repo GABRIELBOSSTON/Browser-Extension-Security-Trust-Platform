@@ -1,6 +1,6 @@
 use crate::domain::types::{BrowserFamily, BrowserChannel};
 use super::models::{BrowserScanResult, RawDiscoveredExtension};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::fs;
 
 pub trait BrowserProvider: Send + Sync {

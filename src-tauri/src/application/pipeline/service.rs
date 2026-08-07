@@ -45,7 +45,7 @@ impl AnalysisPipeline {
         let pipeline_start = Instant::now();
 
         // Clone Arcs and structs to move into spawn_blocking
-        let manifest_svc = self.manifest_service.clone();
+        let _manifest_svc = self.manifest_service.clone();
         let rule_engine = self.rule_engine.clone();
         let rule_set = self.rule_set.clone();
         let target_clone = target.clone();
@@ -123,7 +123,7 @@ impl AnalysisPipeline {
                 elapsed_ms,
                 engine_versions: HashMap::new(),
                 os: std::env::consts::OS.to_string(),
-                browser: target_clone.browser_family.clone() as u8 as String,
+                browser: format!("{:?}", target_clone.browser_family),
                 browser_profile: "default".to_string(),
                 rule_set_version: rule_set.version.clone(),
                 risk_profile: profile_clone.clone(),

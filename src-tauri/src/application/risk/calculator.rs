@@ -2,12 +2,13 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::domain::risk_calculator::*;
-use crate::domain::rule_matcher::{StructuralFinding, RuleId};
+use crate::domain::rule_matcher::StructuralFinding;
 use crate::domain::risk::RiskProfile;
 use crate::domain::types::RiskScore;
+use crate::domain::rules::AggregationPolicy;
 
 pub struct RiskCalculatorService {
-    rule_configs: HashMap<RuleId, RiskRuleConfig>,
+    rule_configs: HashMap<String, RiskRuleConfig>,
     profile: RiskProfile,
 }
 
@@ -15,7 +16,7 @@ impl RiskCalculatorService {
     pub fn new(configs: Vec<RiskRuleConfig>, profile: RiskProfile) -> Self {
         let mut map = HashMap::new();
         for cfg in configs {
-            map.insert(cfg.rule_id, cfg);
+            map.insert(cfg.rule_id.clone(), cfg);
         }
         Self {
             rule_configs: map,
@@ -27,9 +28,9 @@ impl RiskCalculatorService {
         let mut raw_score = 0.0;
         let mut diagnostics = Vec::new();
         
-        let mut grouped_findings: HashMap<RuleId, Vec<&StructuralFinding>> = HashMap::new();
+        let mut grouped_findings: HashMap<String, Vec<&StructuralFinding>> = HashMap::new();
         for finding in findings {
-            grouped_findings.entry(finding.rule_id).or_default().push(finding);
+            grouped_findings.entry(finding.rule_id.0.to_string()).or_default().push(finding);
         }
 
         let mut breakdowns = Vec::new();
@@ -40,7 +41,7 @@ impl RiskCalculatorService {
                 let n = group.len();
                 let w = config.base_weight;
 
-                let cumulative_weight = match config.policy {
+                let cumulative_weight = match &config.policy {
                     AggregationPolicy::Once => w,
                     AggregationPolicy::Sum => w * (n as f64),
                     AggregationPolicy::Max => w,
@@ -51,17 +52,17 @@ impl RiskCalculatorService {
 
                 raw_score += cumulative_weight;
 
-                let associated_finding_ids = group.iter().map(|f| f.finding_id.clone()).collect();
+                let associated_finding_ids = group.iter().map(|f| f.finding_id.0.clone()).collect();
                 
                 breakdowns.push(RiskBreakdown {
-                    rule_id,
+                    rule_id: rule_id.clone(),
                     findings_count: n,
-                    applied_policy: config.policy,
+                    applied_policy: config.policy.clone(),
                     cumulative_weight,
                     associated_finding_ids,
                 });
             } else {
-                diagnostics.push(format!("WARN: Missing configuration for RuleId({})", rule_id.0));
+                diagnostics.push(format!("WARN: Missing configuration for RuleId({})", rule_id));
             }
         }
 
@@ -76,7 +77,7 @@ impl RiskCalculatorService {
         breakdowns.sort_by(|a, b| {
             b.cumulative_weight.partial_cmp(&a.cumulative_weight)
                 .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.rule_id.0.cmp(&b.rule_id.0))
+                .then_with(|| a.rule_id.cmp(&b.rule_id))
         });
 
         let breakdown_count = breakdowns.len();
@@ -100,7 +101,8 @@ impl RiskCalculatorService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::rule_matcher::{FindingId, DetectorKind};
+    use crate::domain::rule_matcher::{FindingId, DetectorKind, RuleId};
+    use crate::domain::Severity;
 
     fn make_finding(rule_id: u32) -> StructuralFinding {
         StructuralFinding {
@@ -116,7 +118,7 @@ mod tests {
     fn test_decay_aggregation_asymptote() {
         let configs = vec![
             RiskRuleConfig {
-                rule_id: RuleId(10),
+                rule_id: "10".to_string(),
                 base_weight: 10.0,
                 policy: AggregationPolicy::Decay,
             }
@@ -138,7 +140,7 @@ mod tests {
     fn test_sum_ceiling_clamping() {
         let configs = vec![
             RiskRuleConfig {
-                rule_id: RuleId(20),
+                rule_id: "20".to_string(),
                 base_weight: 50.0,
                 policy: AggregationPolicy::Sum,
             }
@@ -159,8 +161,8 @@ mod tests {
     #[test]
     fn test_max_and_once_aggregation() {
         let configs = vec![
-            RiskRuleConfig { rule_id: RuleId(30), base_weight: 45.0, policy: AggregationPolicy::Max },
-            RiskRuleConfig { rule_id: RuleId(40), base_weight: 12.0, policy: AggregationPolicy::Once },
+            RiskRuleConfig { rule_id: "30".to_string(), base_weight: 45.0, policy: AggregationPolicy::Max },
+            RiskRuleConfig { rule_id: "40".to_string(), base_weight: 12.0, policy: AggregationPolicy::Once },
         ];
         let service = RiskCalculatorService::new(configs, RiskProfile::Default);
         
@@ -171,10 +173,10 @@ mod tests {
         let assessment = service.calculate(&findings);
         assert_eq!(assessment.raw_score, 57.0); // 45.0 + 12.0
         
-        let max_breakdown = assessment.breakdown.iter().find(|b| b.rule_id.0 == 30).unwrap();
+        let max_breakdown = assessment.breakdown.iter().find(|b| b.rule_id == "30").unwrap();
         assert_eq!(max_breakdown.cumulative_weight, 45.0);
         
-        let once_breakdown = assessment.breakdown.iter().find(|b| b.rule_id.0 == 40).unwrap();
+        let once_breakdown = assessment.breakdown.iter().find(|b| b.rule_id == "40").unwrap();
         assert_eq!(once_breakdown.cumulative_weight, 12.0);
     }
 
@@ -193,9 +195,9 @@ mod tests {
     #[test]
     fn test_tie_breaking_order() {
         let configs = vec![
-            RiskRuleConfig { rule_id: RuleId(300), base_weight: 25.0, policy: AggregationPolicy::Once },
-            RiskRuleConfig { rule_id: RuleId(100), base_weight: 25.0, policy: AggregationPolicy::Once },
-            RiskRuleConfig { rule_id: RuleId(200), base_weight: 25.0, policy: AggregationPolicy::Once },
+            RiskRuleConfig { rule_id: "300".to_string(), base_weight: 25.0, policy: AggregationPolicy::Once },
+            RiskRuleConfig { rule_id: "100".to_string(), base_weight: 25.0, policy: AggregationPolicy::Once },
+            RiskRuleConfig { rule_id: "200".to_string(), base_weight: 25.0, policy: AggregationPolicy::Once },
         ];
         let service = RiskCalculatorService::new(configs, RiskProfile::Default);
         
@@ -203,15 +205,15 @@ mod tests {
         let assessment = service.calculate(&findings);
         
         // Expected order: 100, 200, 300 due to tie breaking on RuleId ASC
-        assert_eq!(assessment.explanation.top_contributors[0].rule_id.0, 100);
-        assert_eq!(assessment.explanation.top_contributors[1].rule_id.0, 200);
-        assert_eq!(assessment.explanation.top_contributors[2].rule_id.0, 300);
+        assert_eq!(assessment.explanation.top_contributors[0].rule_id, "100");
+        assert_eq!(assessment.explanation.top_contributors[1].rule_id, "200");
+        assert_eq!(assessment.explanation.top_contributors[2].rule_id, "300");
     }
     
     #[test]
     fn test_rounding() {
         let configs = vec![
-            RiskRuleConfig { rule_id: RuleId(1), base_weight: 33.333333, policy: AggregationPolicy::Once },
+            RiskRuleConfig { rule_id: "1".to_string(), base_weight: 33.333333, policy: AggregationPolicy::Once },
         ];
         let service = RiskCalculatorService::new(configs, RiskProfile::Default);
         let findings = vec![make_finding(1)];

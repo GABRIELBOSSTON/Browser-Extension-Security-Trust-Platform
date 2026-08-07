@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use uuid::Uuid;
 use crate::domain::persistence::{AuditLogRepository, AuditLogEntry};
 use crate::domain::errors::{DomainError, Result};
 use super::ConnectionProvider;
@@ -76,6 +75,7 @@ mod tests {
 
     #[test]
     fn test_append_log() {
+        use uuid::Uuid;
         let provider = Arc::new(MockConnectionProvider::new());
         let repo = SqliteAuditLogRepository::new(provider);
         
@@ -94,6 +94,7 @@ mod tests {
 
     #[test]
     fn test_database_constraint_error() {
+        use uuid::Uuid;
         let provider = Arc::new(MockConnectionProvider::new());
         let repo = SqliteAuditLogRepository::new(provider);
         

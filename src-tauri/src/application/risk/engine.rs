@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use crate::domain::rules::{RuleSet, AggregationPolicy, Finding};
 use crate::domain::types::RiskScore;
-use crate::domain::risk::{RiskProfile, RiskAssessment, RiskBreakdown, ScoreExplanation};
-use crate::application::rules::RuleEvaluationResult;
+use crate::domain::risk::RiskProfile;
+use crate::domain::risk_calculator::{RiskAssessment, RiskBreakdown, ScoreExplanation};
+use crate::application::rules::models::RuleEvaluationResult;
 
 pub struct RiskEngine;
 
@@ -50,11 +51,13 @@ impl RiskEngine {
 
                 raw_score += applied_weight;
 
-                let evidence = findings.iter().map(|f| f.evidence.clone()).collect();
+                let associated_finding_ids = findings.iter().map(|f| f.finding_id.clone()).collect();
                 breakdowns.push(RiskBreakdown {
-                    rule_id,
-                    applied_weight,
-                    evidence,
+                    rule_id: rule_id.clone(),
+                    findings_count: count,
+                    applied_policy: policy.clone(),
+                    cumulative_weight: applied_weight,
+                    associated_finding_ids,
                 });
             }
         }
@@ -63,11 +66,12 @@ impl RiskEngine {
         let normalized_score = RiskScore::new(normalized_val).unwrap_or_default();
         let severity = profile.classify(normalized_score);
 
-        // Sort breakdowns descending by applied_weight for the explanation
-        breakdowns.sort_by(|a, b| b.applied_weight.partial_cmp(&a.applied_weight).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort breakdowns descending by cumulative_weight for the explanation
+        breakdowns.sort_by(|a, b| b.cumulative_weight.partial_cmp(&a.cumulative_weight).unwrap_or(std::cmp::Ordering::Equal));
         
         let top_contributors = breakdowns.iter().take(3).cloned().collect();
-        let explanation = ScoreExplanation { top_contributors };
+        let breakdown_count = breakdowns.len();
+        let explanation = ScoreExplanation { top_contributors, breakdown_count };
 
         RiskAssessment {
             assessment_id: Uuid::new_v4().to_string(),
@@ -76,6 +80,7 @@ impl RiskEngine {
             severity,
             breakdown: breakdowns,
             explanation,
+            diagnostics: Vec::new(),
         }
     }
 }

@@ -2,12 +2,12 @@ use std::time::Instant;
 use std::collections::HashMap;
 
 use swc_common::{sync::Lrc, FileName, SourceMap};
-use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, EsConfig};
+use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, EsSyntax};
 use swc_ecma_visit::{Visit, VisitWith};
 
 use crate::application::ast_walker::{ASTWalker, WalkerConfig};
 use crate::domain::ast_visitor::{
-    ASTNodeEvent, ASTVisitor, AstNodeKind, TraversalLifecycleEvent, TraversalResult, VisitorContext,
+    ASTVisitor, AstNodeKind, TraversalLifecycleEvent, TraversalResult, VisitorContext,
 };
 use crate::domain::errors::{DomainError, Result};
 
@@ -115,11 +115,11 @@ impl ASTWalker for SWCAstWalker {
     ) -> Result<TraversalResult> {
         let start = Instant::now();
         let cm: Lrc<SourceMap> = Default::default();
-        let fm = cm.new_source_file(FileName::Custom(file_path.into()), source.into());
+        let fm = cm.new_source_file(Lrc::new(FileName::Custom(file_path.into())), source.to_string());
 
         // Basic parser just for the walker string
         let lexer = Lexer::new(
-            Syntax::Es(EsConfig {
+            Syntax::Es(EsSyntax {
                 jsx: true,
                 decorators: true,
                 ..Default::default()
@@ -177,7 +177,7 @@ impl ASTWalker for SWCAstWalker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::ast_visitor::{ASTNodeEvent, AstNodeKind, ASTVisitor, TraversalLifecycleEvent, VisitorContext};
+    use crate::domain::ast_visitor::{AstNodeKind, ASTVisitor, TraversalLifecycleEvent, VisitorContext};
     
     struct MockVisitor {
         pub enter_counts: HashMap<String, usize>,

@@ -1,10 +1,12 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::time::Instant;
 
-use crate::domain::ast_detector::{ASTNodeEvent, DetectorContext, SourceLocation};
-use crate::domain::ast_visitor::{AstNodeKind, VisitorContext};
+use crate::domain::ast_detector::SourceLocation;
+use crate::domain::ast_visitor::{ASTNodeEvent, AstNodeKind, VisitorContext};
 use crate::domain::call_graph::*;
+
+pub enum BuilderBackend {
+    StaticBuilder,
+}
 
 #[derive(Debug, Clone)]
 pub struct CallGraphConfig {
@@ -35,7 +37,7 @@ pub trait CallGraphBuilder: Send + Sync {
 }
 
 pub struct StaticCallGraphBuilder {
-    config: CallGraphConfig,
+    _config: CallGraphConfig,
     graph: CallGraph,
     events_processed: usize,
     start_time: Instant,
@@ -45,7 +47,7 @@ pub struct StaticCallGraphBuilder {
 impl StaticCallGraphBuilder {
     pub fn new(config: CallGraphConfig) -> Self {
         Self {
-            config,
+            _config: config,
             graph: CallGraph::default(),
             events_processed: 0,
             start_time: Instant::now(),
@@ -215,10 +217,10 @@ mod tests {
         let event_arrow = ASTNodeEvent::Enter(AstNodeKind::ArrowFunction);
         builder.process_event(&event_arrow, &context);
 
-        // 4. Class Method & Constructor
-        let event_class_method = ASTNodeEvent::Enter(AstNodeKind::ClassMethod);
+        // 4. Class Declaration & Member Expression
+        let event_class_method = ASTNodeEvent::Enter(AstNodeKind::ClassDeclaration);
         builder.process_event(&event_class_method, &context);
-        let event_constructor = ASTNodeEvent::Enter(AstNodeKind::Constructor);
+        let event_constructor = ASTNodeEvent::Enter(AstNodeKind::MemberExpression);
         builder.process_event(&event_constructor, &context);
 
         // 5. Imports

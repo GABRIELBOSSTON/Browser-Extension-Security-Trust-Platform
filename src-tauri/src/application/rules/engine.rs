@@ -1,6 +1,6 @@
 use std::time::Instant;
 use crate::domain::capabilities::ExtensionCapabilityModel;
-use crate::domain::rules::{RuleSet, Rule, Finding, Evidence, RuleCategory};
+use crate::domain::rules::{RuleSet, Finding, Evidence};
 use crate::application::rules::models::{RuleEvaluationResult, ExecutionStats};
 use uuid::Uuid;
 

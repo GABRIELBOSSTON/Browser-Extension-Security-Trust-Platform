@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-use super::ast_visitor::AstNodeKind;
+pub use super::ast_visitor::AstNodeKind;
 
 #[derive(Debug, Clone, Default)]
 pub struct DetectorContext {
