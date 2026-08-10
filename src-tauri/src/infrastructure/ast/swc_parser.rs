@@ -1,6 +1,6 @@
 use std::time::Instant;
 use swc_common::{sync::Lrc, FileName, SourceMap, Spanned};
-use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsSyntax, EsSyntax};
+use swc_ecma_parser::{lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax};
 
 use crate::application::ast::parser::AstParser;
 use crate::domain::ast::{
@@ -16,11 +16,26 @@ impl SWCAstParser {
     }
 }
 
+impl Default for SWCAstParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AstParser for SWCAstParser {
-    fn parse(&self, source: &str, file_path: &str, config: &ParserConfig, lang: Language) -> Result<ParseResult> {
+    fn parse(
+        &self,
+        source: &str,
+        file_path: &str,
+        config: &ParserConfig,
+        lang: Language,
+    ) -> Result<ParseResult> {
         let start = Instant::now();
         let cm: Lrc<SourceMap> = Default::default();
-        let fm = cm.new_source_file(Lrc::new(FileName::Custom(file_path.into())), source.to_string());
+        let fm = cm.new_source_file(
+            Lrc::new(FileName::Custom(file_path.into())),
+            source.to_string(),
+        );
 
         let syntax = match lang {
             Language::TypeScript | Language::TSX => Syntax::Typescript(TsSyntax {
@@ -35,15 +50,10 @@ impl AstParser for SWCAstParser {
             }),
         };
 
-        let lexer = Lexer::new(
-            syntax,
-            Default::default(),
-            StringInput::from(&*fm),
-            None,
-        );
+        let lexer = Lexer::new(syntax, Default::default(), StringInput::from(&*fm), None);
 
         let mut parser = Parser::new_from(lexer);
-        
+
         let mut diagnostics = Vec::new();
         let mut ast_document = None;
         let root_node_count;
@@ -51,9 +61,7 @@ impl AstParser for SWCAstParser {
         match parser.parse_module() {
             Ok(module) => {
                 root_node_count = module.body.len();
-                ast_document = Some(ASTDocument {
-                    root_node_count,
-                });
+                ast_document = Some(ASTDocument { root_node_count });
             }
             Err(err) => {
                 let span = err.span();
@@ -108,8 +116,10 @@ mod tests {
         let parser = SWCAstParser::new();
         let source = "const x = 10; function test() { return x; }";
         let config = ParserConfig::default();
-        let result = parser.parse(source, "test.js", &config, Language::JavaScript).unwrap();
-        
+        let result = parser
+            .parse(source, "test.js", &config, Language::JavaScript)
+            .unwrap();
+
         assert!(result.diagnostics.is_empty());
         assert!(result.ast_document.is_some());
         assert_eq!(result.ast_document.unwrap().root_node_count, 2);
@@ -120,8 +130,10 @@ mod tests {
         let parser = SWCAstParser::new();
         let source = "function test() { return x"; // missing closing brace
         let config = ParserConfig::default();
-        let result = parser.parse(source, "test.js", &config, Language::JavaScript).unwrap();
-        
+        let result = parser
+            .parse(source, "test.js", &config, Language::JavaScript)
+            .unwrap();
+
         assert!(!result.diagnostics.is_empty());
         assert_eq!(result.diagnostics[0].severity, "Warning");
     }
@@ -131,8 +143,10 @@ mod tests {
         let parser = SWCAstParser::new();
         let source = "let x: number = 10; interface User { name: string; }";
         let config = ParserConfig::default();
-        let result = parser.parse(source, "test.ts", &config, Language::TypeScript).unwrap();
-        
+        let result = parser
+            .parse(source, "test.ts", &config, Language::TypeScript)
+            .unwrap();
+
         assert!(result.diagnostics.is_empty());
         assert!(result.ast_document.is_some());
         assert_eq!(result.ast_document.unwrap().root_node_count, 2);
@@ -143,8 +157,10 @@ mod tests {
         let parser = SWCAstParser::new();
         let source = "const el = <div>Hello</div>;";
         let config = ParserConfig::default();
-        let result = parser.parse(source, "test.jsx", &config, Language::JSX).unwrap();
-        
+        let result = parser
+            .parse(source, "test.jsx", &config, Language::JSX)
+            .unwrap();
+
         assert!(result.diagnostics.is_empty());
         assert!(result.ast_document.is_some());
     }
@@ -154,8 +170,10 @@ mod tests {
         let parser = SWCAstParser::new();
         let source = "";
         let config = ParserConfig::default();
-        let result = parser.parse(source, "empty.js", &config, Language::JavaScript).unwrap();
-        
+        let result = parser
+            .parse(source, "empty.js", &config, Language::JavaScript)
+            .unwrap();
+
         assert!(result.diagnostics.is_empty());
         assert_eq!(result.ast_document.unwrap().root_node_count, 0);
     }
@@ -165,8 +183,10 @@ mod tests {
         let parser = SWCAstParser::new();
         let source = "function a(b,c){return b+c}var d=a(1,2);console.log(d);";
         let config = ParserConfig::default();
-        let result = parser.parse(source, "minified.js", &config, Language::JavaScript).unwrap();
-        
+        let result = parser
+            .parse(source, "minified.js", &config, Language::JavaScript)
+            .unwrap();
+
         assert!(result.diagnostics.is_empty());
         assert_eq!(result.ast_document.unwrap().root_node_count, 3);
     }
@@ -176,8 +196,10 @@ mod tests {
         let parser = SWCAstParser::new();
         let source = "var _0x1234=['log','Hello\\x20World'];console[_0x1234[0]](_0x1234[1]);";
         let config = ParserConfig::default();
-        let result = parser.parse(source, "obfuscated.js", &config, Language::JavaScript).unwrap();
-        
+        let result = parser
+            .parse(source, "obfuscated.js", &config, Language::JavaScript)
+            .unwrap();
+
         assert!(result.diagnostics.is_empty());
         assert_eq!(result.ast_document.unwrap().root_node_count, 2);
     }

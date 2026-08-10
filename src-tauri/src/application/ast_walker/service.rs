@@ -1,8 +1,8 @@
-use std::path::Path;
-use crate::domain::errors::{DomainError, Result};
-use crate::domain::ast_visitor::{ASTVisitor, TraversalResult};
+use super::factory::{WalkerBackend, WalkerFactory};
 use super::walker::{ASTWalker, WalkerConfig};
-use super::factory::{WalkerFactory, WalkerBackend};
+use crate::domain::ast_visitor::{ASTVisitor, TraversalResult};
+use crate::domain::errors::{DomainError, Result};
+use std::path::Path;
 
 pub struct ASTWalkerService {
     walker: Box<dyn ASTWalker>,
@@ -21,9 +21,14 @@ impl ASTWalkerService {
         config: &WalkerConfig,
         visitor: &mut dyn ASTVisitor,
     ) -> Result<TraversalResult> {
-        let source = std::fs::read_to_string(file_path)
-            .map_err(|e| DomainError::IoError(e.to_string()))?;
-        self.walker.walk(&source, file_path.to_string_lossy().as_ref(), config, visitor)
+        let source =
+            std::fs::read_to_string(file_path).map_err(|e| DomainError::IoError(e.to_string()))?;
+        self.walker.walk(
+            &source,
+            file_path.to_string_lossy().as_ref(),
+            config,
+            visitor,
+        )
     }
 
     pub fn walk_source(

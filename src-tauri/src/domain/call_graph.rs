@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::domain::ast_detector::SourceLocation;
 
@@ -85,16 +85,16 @@ pub struct CallGraph {
 pub struct CallGraphMetadata {
     pub graph_version: u32,
     pub builder_version: String,
-    
+
     pub node_count: usize,
     pub edge_count: usize,
-    
+
     pub disconnected_nodes: usize,
     pub isolated_components: usize,
     pub recursive_functions: usize,
     pub entry_points: usize,
     pub orphan_functions: usize,
-    
+
     pub max_call_depth: usize,
     pub max_fan_in: usize,
     pub max_fan_out: usize,

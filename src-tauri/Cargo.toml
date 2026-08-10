@@ -28,6 +28,11 @@ swc_ecma_visit = "27"
 chrono = { version = "0.4.45", features = ["serde"] }
 zip = "8.6.0"
 dirs = "6.0.0"
+regex = "1.13.1"
+walkdir = "2.5.0"
+reqwest = { version = "0.12.5", features = ["json", "blocking"] }
+sha2 = "0.10.8"
+hex = "0.4.3"
 
 [profile.release]
 panic = "abort"

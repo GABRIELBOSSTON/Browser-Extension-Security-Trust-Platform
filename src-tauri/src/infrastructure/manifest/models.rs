@@ -21,4 +21,6 @@ pub struct RawManifest {
     pub content_scripts: Vec<serde_json::Value>,
     #[serde(default)]
     pub web_accessible_resources: Vec<serde_json::Value>,
+    pub content_security_policy: Option<serde_json::Value>,
+    pub externally_connectable: Option<serde_json::Value>,
 }

@@ -1,4 +1,4 @@
-use crate::domain::types::{BrowserFamily, BrowserChannel};
+use crate::domain::types::{BrowserChannel, BrowserFamily};
 
 #[derive(Debug, Clone)]
 pub struct RawDiscoveredExtension {
@@ -6,6 +6,9 @@ pub struct RawDiscoveredExtension {
     pub profile_name: String,
     pub version: String,
     pub install_path: String,
+    pub name: String,
+    pub manifest_version: i32,
+    pub disabled: bool,
 }
 
 #[derive(Debug, Clone)]

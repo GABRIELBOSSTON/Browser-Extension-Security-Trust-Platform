@@ -1,195 +1,148 @@
+use regex::Regex;
+use std::collections::HashMap;
 use std::time::Instant;
-use std::collections::{HashMap, HashSet};
 
-use crate::domain::ast_detector::{AstDetector, DetectorContext, DetectorResult, AstNodeKind, SourceLocation};
-use crate::domain::secret_detector::*;
-use crate::domain::call_graph::FunctionId;
-
-pub trait PatternRegistry: Send + Sync {
-    fn matches(&self, input: &str) -> Vec<(SecretType, SecretCategory, MatchConfidence)>;
-}
+use crate::domain::ast_detector::{
+    AstDetector, AstNodeKind, DetectionFinding, DetectorContext, DetectorResult, SourceLocation,
+};
 
 pub struct SecretDetector {
-    registry: Box<dyn PatternRegistry>,
-    matches: Vec<SecretMatch>,
+    findings: Vec<DetectionFinding>,
     start_time: Instant,
+    visited: usize,
+    patterns: Vec<(Regex, &'static str, &'static str)>, // (Regex, Type, Severity)
+}
+
+impl Default for SecretDetector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SecretDetector {
-    pub fn new(registry: Box<dyn PatternRegistry>) -> Self {
+    pub fn new() -> Self {
+        let patterns = vec![
+            (
+                Regex::new(r#"(?i)(?:key|api[_-]?key|secret|token|password)[^\n]{0,20}['"][0-9a-zA-Z]{16,40}['"]"#).unwrap(),
+                "Generic API Key",
+                "High",
+            ),
+            (
+                Regex::new(r"ey[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*").unwrap(),
+                "JWT Token",
+                "High",
+            ),
+            (
+                Regex::new(r"(?i)bearer\s+[A-Za-z0-9\-._~+/]+").unwrap(),
+                "Bearer Token",
+                "High",
+            ),
+            (
+                Regex::new(r"AIza[0-9A-Za-z\-_]{35}").unwrap(),
+                "Google API Key",
+                "High",
+            ),
+            (
+                Regex::new(r"AKIA[0-9A-Z]{16}").unwrap(),
+                "AWS Access Key",
+                "High",
+            ),
+            (
+                Regex::new(r"-----BEGIN (?:RSA )?PRIVATE KEY-----").unwrap(),
+                "Private Key",
+                "Critical",
+            ),
+        ];
+
         Self {
-            registry,
-            matches: Vec::new(),
+            findings: Vec::new(),
             start_time: Instant::now(),
+            visited: 0,
+            patterns,
         }
     }
 
-    fn truncate_preview(preview: &str) -> String {
-        if preview.len() > 64 {
-            let mut s = preview.chars().take(61).collect::<String>();
-            s.push_str("...");
-            s
-        } else {
-            preview.to_string()
+    fn check_secret(&self, content: &str) -> Option<(&'static str, &'static str, String)> {
+        for (re, secret_type, severity) in &self.patterns {
+            if let Some(mat) = re.find(content) {
+                return Some((*secret_type, *severity, mat.as_str().to_string()));
+            }
         }
-    }
-
-    fn generate_secret_id(secret_type: &SecretType) -> SecretId {
-        let name = format!("{:?}", secret_type);
-        let mut hash: u32 = 0x811c9dc5;
-        for byte in name.bytes() {
-            hash ^= byte as u32;
-            hash = hash.wrapping_mul(0x01000193);
-        }
-        SecretId(hash)
+        None
     }
 }
 
 impl AstDetector for SecretDetector {
-    fn detector_id(&self) -> &str { "DET-SECRET-001" }
-    fn detector_name(&self) -> &str { "Hardcoded Secret Foundation" }
-    
-    fn supported_nodes(&self) -> &'static [AstNodeKind] {
-        &[
-            AstNodeKind::StringLiteral, 
-            AstNodeKind::TemplateLiteral
-        ]
+    fn detector_id(&self) -> &str {
+        "DET-SECRET-002"
     }
-    
+    fn detector_name(&self) -> &str {
+        "Hardcoded Secret Detector"
+    }
+
+    fn supported_nodes(&self) -> &'static [AstNodeKind] {
+        &[AstNodeKind::StringLiteral, AstNodeKind::TemplateLiteral]
+    }
+
     fn enter(&mut self, node: AstNodeKind, context: &mut DetectorContext) {
-        if let Some(payload) = context.metadata.get("simulated_string_literal") {
-            let matches = self.registry.matches(payload);
-            
-            for (secret_type, category, confidence) in matches {
-                let secret_id = Self::generate_secret_id(&secret_type);
-                let preview = Self::truncate_preview(payload);
-                
-                let source_kind = match node {
-                    AstNodeKind::StringLiteral => SecretSourceKind::StringLiteral,
-                    AstNodeKind::TemplateLiteral => SecretSourceKind::TemplateLiteral,
-                    _ => SecretSourceKind::Unknown,
+        if let Some(content) = context.metadata.get("simulated_string_literal") {
+            if let Some((secret_type, severity, matched_str)) = self.check_secret(content) {
+                self.visited += 1;
+
+                let line = context
+                    .metadata
+                    .get("line")
+                    .and_then(|l| l.parse().ok())
+                    .unwrap_or(0);
+                let column = context
+                    .metadata
+                    .get("column")
+                    .and_then(|c| c.parse().ok())
+                    .unwrap_or(0);
+
+                let mut metadata = HashMap::new();
+                metadata.insert("severity".to_string(), severity.to_string());
+                metadata.insert(
+                    "filename".to_string(),
+                    context.current_file.clone().unwrap_or_default(),
+                );
+                metadata.insert("secret_type".to_string(), secret_type.to_string());
+
+                // Truncate the match for safety
+                let preview = if matched_str.len() > 20 {
+                    format!("{}...", &matched_str[..17])
+                } else {
+                    matched_str
                 };
 
-                self.matches.push(SecretMatch {
-                    secret_id,
-                    secret_type,
-                    category,
-                    confidence,
-                    source_kind,
-                    preview,
-                    source_location: SourceLocation { line: 1, column: 1, start_offset: 0, end_offset: 10 },
-                    function_id: FunctionId(0), // Would map from actual call graph context
-                    call_depth: context.scope_depth,
+                self.findings.push(DetectionFinding {
+                    finding_id: format!("F-SECRET-{}", self.findings.len()),
+                    node_kind: node.clone(),
+                    location: SourceLocation {
+                        line,
+                        column,
+                        start_offset: 0,
+                        end_offset: 0,
+                    },
+                    message: format!("Hardcoded {}: {}", secret_type, preview),
+                    metadata,
                 });
             }
         }
     }
 
     fn leave(&mut self, _node: AstNodeKind, _context: &mut DetectorContext) {}
-    
+
     fn finish(&mut self, _context: &mut DetectorContext) -> DetectorResult {
-        let elapsed_ms = self.start_time.elapsed().as_millis() as u64;
-        let total_matches = self.matches.len();
-        
-        let mut unique_secret_ids = HashSet::new();
-        let mut unknown_matches = 0;
-        let mut matches_by_type = HashMap::new();
-        
-        for secret_match in &self.matches {
-            unique_secret_ids.insert(secret_match.secret_id);
-            if secret_match.secret_type == SecretType::Unknown {
-                unknown_matches += 1;
-            }
-            *matches_by_type.entry(secret_match.secret_type.clone()).or_insert(0) += 1;
-        }
-
-        let _statistics = SecretStatistics {
-            total_matches,
-            unique_matches: unique_secret_ids.len(),
-            unknown_matches,
-            matches_by_type,
-        };
-
-        let _inventory = SecretInventory {
-            matches: std::mem::take(&mut self.matches),
-            unique_secret_ids,
-        };
-
         DetectorResult {
             detector_id: self.detector_id().to_string(),
-            findings: Vec::new(),
+            findings: std::mem::take(&mut self.findings),
             statistics: std::collections::HashMap::new(),
             warnings: Vec::new(),
-            elapsed_ms,
-            visited_nodes: total_matches, // simplified
+            elapsed_ms: self.start_time.elapsed().as_millis() as u64,
+            visited_nodes: self.visited,
             skipped_nodes: 0,
             cancelled: false,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct MockPatternRegistry;
-
-    impl PatternRegistry for MockPatternRegistry {
-        fn matches(&self, input: &str) -> Vec<(SecretType, SecretCategory, MatchConfidence)> {
-            let mut results = Vec::new();
-            if input.starts_with("sk-ant-") {
-                results.push((SecretType::AnthropicKey, SecretCategory::AIProvider, MatchConfidence::High));
-            }
-            if input.starts_with("sk-") && !input.starts_with("sk-ant-") {
-                results.push((SecretType::OpenAiKey, SecretCategory::AIProvider, MatchConfidence::High));
-            }
-            if input.starts_with("AKIA") {
-                results.push((SecretType::AwsAccessKey, SecretCategory::CloudProvider, MatchConfidence::High));
-            }
-            results
-        }
-    }
-
-    #[test]
-    fn test_secret_extraction_and_statistics() {
-        let registry = Box::new(MockPatternRegistry);
-        let mut detector = SecretDetector::new(registry);
-        let mut context = DetectorContext::default();
-        
-        // 1. Anthropic Key (StringLiteral)
-        context.metadata.insert("simulated_string_literal".to_string(), "sk-ant-api03-1234567890123456789012345678901234567890123456789012345678901234567890".to_string());
-        detector.enter(AstNodeKind::StringLiteral, &mut context);
-        
-        // 2. OpenAI Key (StringLiteral)
-        context.metadata.insert("simulated_string_literal".to_string(), "sk-1234567890".to_string());
-        detector.enter(AstNodeKind::StringLiteral, &mut context);
-
-        // 3. AWS Key (TemplateLiteral)
-        context.metadata.insert("simulated_string_literal".to_string(), "AKIAIOSFODNN7EXAMPLE".to_string());
-        detector.enter(AstNodeKind::TemplateLiteral, &mut context);
-
-        // 4. Duplicate OpenAI Key (to test unique identity mapping)
-        context.metadata.insert("simulated_string_literal".to_string(), "sk-0987654321".to_string());
-        detector.enter(AstNodeKind::StringLiteral, &mut context);
-
-        let result = detector.finish(&mut context);
-        assert_eq!(result.visited_nodes, 4); // 4 total matches
-    }
-    
-    #[test]
-    fn test_preview_truncation() {
-        let preview = SecretDetector::truncate_preview(&"A".repeat(100));
-        assert_eq!(preview.len(), 64); // 61 chars + "..."
-        assert!(preview.ends_with("..."));
-    }
-    
-    #[test]
-    fn test_secret_id_determinism() {
-        let id1 = SecretDetector::generate_secret_id(&SecretType::AwsAccessKey);
-        let id2 = SecretDetector::generate_secret_id(&SecretType::AwsAccessKey);
-        let id3 = SecretDetector::generate_secret_id(&SecretType::OpenAiKey);
-        
-        assert_eq!(id1, id2, "SecretIds for the same SecretType must be identical");
-        assert_ne!(id1, id3, "SecretIds for different SecretTypes must differ");
     }
 }

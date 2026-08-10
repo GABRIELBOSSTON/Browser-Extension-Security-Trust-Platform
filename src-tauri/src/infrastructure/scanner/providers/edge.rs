@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-use crate::domain::types::{BrowserFamily, BrowserChannel};
+use crate::domain::types::{BrowserChannel, BrowserFamily};
 use crate::infrastructure::scanner::models::BrowserScanResult;
 use crate::infrastructure::scanner::provider::{scan_chromium_profiles, BrowserProvider};
+use std::path::PathBuf;
 
 pub struct EdgeProvider;
 
@@ -16,7 +16,7 @@ impl BrowserProvider for EdgeProvider {
 
     fn scan(&self) -> BrowserScanResult {
         let mut extensions = Vec::new();
-        
+
         #[cfg(target_os = "windows")]
         if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
             let path = PathBuf::from(local_app_data).join("Microsoft\\Edge\\User Data");

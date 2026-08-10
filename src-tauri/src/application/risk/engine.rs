@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use uuid::Uuid;
-use crate::domain::rules::{RuleSet, AggregationPolicy, Finding};
-use crate::domain::types::RiskScore;
+use crate::application::rules::models::RuleEvaluationResult;
 use crate::domain::risk::RiskProfile;
 use crate::domain::risk_calculator::{RiskAssessment, RiskBreakdown, ScoreExplanation};
-use crate::application::rules::models::RuleEvaluationResult;
+use crate::domain::rules::{AggregationPolicy, Finding, RuleSet};
+use crate::domain::types::RiskScore;
+use std::collections::HashMap;
+use uuid::Uuid;
 
 pub struct RiskEngine;
 
@@ -32,7 +32,7 @@ impl RiskEngine {
             if let Some(rule) = rule {
                 let base_weight = rule.weight;
                 let policy = &rule.aggregation_policy;
-                
+
                 let count = findings.len();
                 let applied_weight = match policy {
                     AggregationPolicy::Once => base_weight,
@@ -51,7 +51,8 @@ impl RiskEngine {
 
                 raw_score += applied_weight;
 
-                let associated_finding_ids = findings.iter().map(|f| f.finding_id.clone()).collect();
+                let associated_finding_ids =
+                    findings.iter().map(|f| f.finding_id.clone()).collect();
                 breakdowns.push(RiskBreakdown {
                     rule_id: rule_id.clone(),
                     findings_count: count,
@@ -62,16 +63,23 @@ impl RiskEngine {
             }
         }
 
-        let normalized_val = raw_score.min(100.0).max(0.0);
+        let normalized_val = raw_score.clamp(0.0, 100.0);
         let normalized_score = RiskScore::new(normalized_val).unwrap_or_default();
         let severity = profile.classify(normalized_score);
 
         // Sort breakdowns descending by cumulative_weight for the explanation
-        breakdowns.sort_by(|a, b| b.cumulative_weight.partial_cmp(&a.cumulative_weight).unwrap_or(std::cmp::Ordering::Equal));
-        
+        breakdowns.sort_by(|a, b| {
+            b.cumulative_weight
+                .partial_cmp(&a.cumulative_weight)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         let top_contributors = breakdowns.iter().take(3).cloned().collect();
         let breakdown_count = breakdowns.len();
-        let explanation = ScoreExplanation { top_contributors, breakdown_count };
+        let explanation = ScoreExplanation {
+            top_contributors,
+            breakdown_count,
+        };
 
         RiskAssessment {
             assessment_id: Uuid::new_v4().to_string(),

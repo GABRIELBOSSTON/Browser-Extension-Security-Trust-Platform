@@ -1,7 +1,7 @@
-use crate::infrastructure::scanner::provider::BrowserProvider;
 use crate::infrastructure::scanner::models::BrowserScanResult;
+use crate::infrastructure::scanner::provider::BrowserProvider;
 use crate::infrastructure::scanner::providers::{
-    ChromeProvider, EdgeProvider, BraveProvider, OperaStableProvider, OperaGXProvider
+    BraveProvider, ChromeProvider, EdgeProvider, OperaGXProvider, OperaStableProvider,
 };
 
 pub struct DiscoveryEngine {
@@ -20,7 +20,15 @@ impl DiscoveryEngine {
             ],
         }
     }
+}
 
+impl Default for DiscoveryEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DiscoveryEngine {
     pub fn scan_all(&self) -> Vec<BrowserScanResult> {
         self.providers
             .iter()

@@ -59,7 +59,7 @@ impl StaticCallGraphBuilder {
         // FNV-1a hash implementation for guaranteed cross-execution determinism
         let mut hash: u64 = 0xcbf29ce484222325;
         let prime: u64 = 0x100000001b3;
-        
+
         for byte in file.bytes() {
             hash ^= byte as u64;
             hash = hash.wrapping_mul(prime);
@@ -72,7 +72,7 @@ impl StaticCallGraphBuilder {
             hash ^= byte as u64;
             hash = hash.wrapping_mul(prime);
         }
-        
+
         FunctionId(hash)
     }
 
@@ -96,12 +96,17 @@ impl CallGraphBuilder for StaticCallGraphBuilder {
                         let file = context.current_file.as_deref().unwrap_or("unknown");
                         let name = Self::extract_name(node).unwrap_or_else(|| "anon".to_string());
                         let id = Self::generate_function_id(file, context.scope_depth, &name);
-                        
+
                         let call_node = CallNode {
                             id,
                             name: Some(name),
                             kind: FunctionKind::FunctionDeclaration,
-                            location: SourceLocation { line: 0, column: 0, start_offset: 0, end_offset: 0 },
+                            location: SourceLocation {
+                                line: 0,
+                                column: 0,
+                                start_offset: 0,
+                                end_offset: 0,
+                            },
                             parameter_count: 0,
                             is_async: false,
                             is_generator: false,
@@ -110,20 +115,27 @@ impl CallGraphBuilder for StaticCallGraphBuilder {
                             return_type: None,
                         };
                         self.graph.nodes.insert(id, call_node);
-                    },
+                    }
                     AstNodeKind::CallExpression => {
                         // In a real implementation we would identify the caller from context.
                         // Here we simulate establishing an edge.
                         let file = context.current_file.as_deref().unwrap_or("unknown");
-                        let caller_id = Self::generate_function_id(file, context.scope_depth, "function_decl");
-                        let callee_id = Self::generate_function_id(file, context.scope_depth, "target_func");
+                        let caller_id =
+                            Self::generate_function_id(file, context.scope_depth, "function_decl");
+                        let callee_id =
+                            Self::generate_function_id(file, context.scope_depth, "target_func");
 
                         // Create edge if it doesn't exist, otherwise append call site
                         let edge_id = EdgeId(self.current_edge_id);
                         self.current_edge_id += 1;
 
                         let call_site = CallSite {
-                            location: SourceLocation { line: 0, column: 0, start_offset: 0, end_offset: 0 },
+                            location: SourceLocation {
+                                line: 0,
+                                column: 0,
+                                start_offset: 0,
+                                end_offset: 0,
+                            },
                             callee_name: Some("target_func".to_string()),
                             arguments_count: 0,
                             is_indirect: false,
@@ -138,19 +150,29 @@ impl CallGraphBuilder for StaticCallGraphBuilder {
                         };
 
                         self.graph.edges.push(edge);
-                        self.graph.index.outgoing.entry(caller_id).or_default().push(edge_id);
-                        self.graph.index.incoming.entry(callee_id).or_default().push(edge_id);
-                    },
+                        self.graph
+                            .index
+                            .outgoing
+                            .entry(caller_id)
+                            .or_default()
+                            .push(edge_id);
+                        self.graph
+                            .index
+                            .incoming
+                            .entry(callee_id)
+                            .or_default()
+                            .push(edge_id);
+                    }
                     _ => {}
                 }
-            },
+            }
             ASTNodeEvent::Leave(_) => {}
         }
     }
 
     fn build(self: Box<Self>) -> CallGraphResult {
         let elapsed_ms = self.start_time.elapsed().as_millis() as u64;
-        
+
         let metadata = CallGraphMetadata {
             graph_version: 1,
             builder_version: "1.0".to_string(),
@@ -201,14 +223,15 @@ mod tests {
 
     #[test]
     fn test_call_graph_construction_scenarios() {
-        let mut builder: Box<dyn CallGraphBuilder> = Box::new(StaticCallGraphBuilder::new(CallGraphConfig::default()));
+        let mut builder: Box<dyn CallGraphBuilder> =
+            Box::new(StaticCallGraphBuilder::new(CallGraphConfig::default()));
         let mut context = VisitorContext::default();
         context.current_file = Some("test.js".to_string());
-        
+
         // 1. Function Declaration (Simple)
         let event_fn = ASTNodeEvent::Enter(AstNodeKind::FunctionDeclaration);
         builder.process_event(&event_fn, &context);
-        
+
         // 2. Call Expression (Nested/Simple call)
         let event_call = ASTNodeEvent::Enter(AstNodeKind::CallExpression);
         builder.process_event(&event_call, &context);
@@ -226,14 +249,20 @@ mod tests {
         // 5. Imports
         let event_import = ASTNodeEvent::Enter(AstNodeKind::ImportDeclaration);
         builder.process_event(&event_import, &context);
-        
+
         let result = builder.build();
-        
+
         // Validation of metadata and coverage
         assert!(result.metadata.node_count >= 1);
         assert!(result.metadata.edge_count >= 1);
         assert!(result.execution_statistics.events_processed >= 6);
-        assert!(!result.graph.index.outgoing.is_empty(), "Graph index outgoing must be populated");
-        assert!(!result.graph.index.incoming.is_empty(), "Graph index incoming must be populated");
+        assert!(
+            !result.graph.index.outgoing.is_empty(),
+            "Graph index outgoing must be populated"
+        );
+        assert!(
+            !result.graph.index.incoming.is_empty(),
+            "Graph index incoming must be populated"
+        );
     }
 }

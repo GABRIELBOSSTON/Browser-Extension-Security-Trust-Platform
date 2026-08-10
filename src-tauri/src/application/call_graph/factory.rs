@@ -3,7 +3,10 @@ use super::builder::{BuilderBackend, CallGraphBuilder, CallGraphConfig, StaticCa
 pub struct CallGraphFactory;
 
 impl CallGraphFactory {
-    pub fn create_builder(backend: BuilderBackend, config: CallGraphConfig) -> Box<dyn CallGraphBuilder> {
+    pub fn create_builder(
+        backend: BuilderBackend,
+        config: CallGraphConfig,
+    ) -> Box<dyn CallGraphBuilder> {
         match backend {
             BuilderBackend::StaticBuilder => Box::new(StaticCallGraphBuilder::new(config)),
         }

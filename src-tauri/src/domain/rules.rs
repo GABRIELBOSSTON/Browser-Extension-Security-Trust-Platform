@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use crate::domain::types::Severity;
 use crate::domain::capabilities::{CapabilityId, MatchPattern};
+use crate::domain::types::Severity;
+use serde::{Deserialize, Serialize};
 
 /// Rule Categories
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

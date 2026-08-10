@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
-use uuid::Uuid;
-use std::sync::Arc;
 use crate::domain::errors::Result;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SandboxId(pub Uuid);
@@ -23,15 +23,16 @@ pub struct ValidationResult {
 pub trait SandboxManager: Send + Sync {
     /// Creates a unique, ephemeral sandbox directory
     fn create_sandbox(&self) -> Result<SandboxContext>;
-    
+
     /// Cleans up the sandbox directory explicitly
     fn destroy_sandbox(&self, context: &SandboxContext) -> Result<()>;
 }
 
 pub trait ArchiveExtractor: Send + Sync {
     /// Extracts the archive securely into `destination_sandbox`
-    fn extract(&self, source_archive: &Path, destination_sandbox: &SandboxContext) -> Result<usize>;
-    
+    fn extract(&self, source_archive: &Path, destination_sandbox: &SandboxContext)
+        -> Result<usize>;
+
     /// Identifies if this extractor supports the given file signature by inspecting magic bytes
     fn supports(&self, header_bytes: &[u8]) -> bool;
 }

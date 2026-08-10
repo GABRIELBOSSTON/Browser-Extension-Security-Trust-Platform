@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub use super::ast_visitor::AstNodeKind;
 
@@ -35,7 +35,7 @@ pub struct DetectorResult {
     pub findings: Vec<DetectionFinding>,
     pub statistics: HashMap<String, usize>,
     pub warnings: Vec<String>,
-    
+
     // Telemetry and Execution Metadata
     pub elapsed_ms: u64,
     pub visited_nodes: usize,
@@ -46,10 +46,10 @@ pub struct DetectorResult {
 pub trait AstDetector: Send + Sync {
     fn detector_id(&self) -> &str;
     fn detector_name(&self) -> &str;
-    
+
     // Zero-allocation node dispatch filtering
     fn supported_nodes(&self) -> &'static [AstNodeKind];
-    
+
     fn enter(&mut self, node: AstNodeKind, context: &mut DetectorContext);
     fn leave(&mut self, node: AstNodeKind, context: &mut DetectorContext);
     fn finish(&mut self, context: &mut DetectorContext) -> DetectorResult;

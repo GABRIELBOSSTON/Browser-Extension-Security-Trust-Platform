@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
+use crate::application::rules::models::RuleEvaluationResult;
+use crate::domain::capabilities::ExtensionCapabilityModel;
+use crate::domain::entities::{DiscoveredExtension, Manifest};
 use crate::domain::risk::RiskProfile;
 use crate::domain::risk_calculator::RiskAssessment;
-use crate::domain::entities::{DiscoveredExtension, Manifest};
-use crate::domain::capabilities::ExtensionCapabilityModel;
-use crate::application::rules::models::RuleEvaluationResult;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Result of a single stage's execution
@@ -39,6 +39,7 @@ pub struct PipelineResult {
     pub metadata: PipelineMetadata,
     pub target_info: DiscoveredExtension,
     pub stage_results: Vec<StageResult>,
+    pub virustotal_reports: Option<Vec<crate::application::virustotal::models::VirusTotalReport>>,
 }
 
 /// The result of evaluating a batch of extensions
@@ -60,6 +61,7 @@ pub struct AnalysisContext {
     pub capability_model: Option<ExtensionCapabilityModel>,
     pub rule_evaluation: Option<RuleEvaluationResult>,
     pub risk_assessment: Option<RiskAssessment>,
+    pub virustotal_reports: Option<Vec<crate::application::virustotal::models::VirusTotalReport>>,
     pub warnings: Vec<String>,
     pub notes: Vec<String>,
     pub timings: HashMap<String, u64>,
@@ -74,6 +76,7 @@ impl AnalysisContext {
             capability_model: None,
             rule_evaluation: None,
             risk_assessment: None,
+            virustotal_reports: None,
             warnings: Vec::new(),
             notes: Vec::new(),
             timings: HashMap::new(),

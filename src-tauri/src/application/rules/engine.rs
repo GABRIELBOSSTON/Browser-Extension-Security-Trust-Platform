@@ -1,7 +1,7 @@
-use std::time::Instant;
+use crate::application::rules::models::{ExecutionStats, RuleEvaluationResult};
 use crate::domain::capabilities::ExtensionCapabilityModel;
-use crate::domain::rules::{RuleSet, Finding, Evidence};
-use crate::application::rules::models::{RuleEvaluationResult, ExecutionStats};
+use crate::domain::rules::{Evidence, Finding, RuleSet};
+use std::time::Instant;
 use uuid::Uuid;
 
 pub struct RuleEngine {
@@ -20,7 +20,7 @@ impl RuleEngine {
 
         for rule in &self.rule_set.rules {
             rules_evaluated += 1;
-            
+
             // Map matcher_id to native Rust matchers
             if let Some(evidence) = Self::execute_matcher(&rule.matcher_id, model) {
                 findings.push(Finding {
@@ -50,7 +50,10 @@ impl RuleEngine {
             "matcher_broad_host" => {
                 // Check if the extension requests broad host permissions like <all_urls> or *://*/*
                 for pattern in &model.hosts.patterns {
-                    if pattern.raw == "<all_urls>" || pattern.raw == "*://*/*" || pattern.raw == "*://*/" {
+                    if pattern.raw == "<all_urls>"
+                        || pattern.raw == "*://*/*"
+                        || pattern.raw == "*://*/"
+                    {
                         return Some(Evidence::MatchPattern(pattern.clone()));
                     }
                 }

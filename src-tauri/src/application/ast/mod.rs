@@ -1,7 +1,7 @@
-pub mod parser;
 pub mod factory;
+pub mod parser;
 pub mod service;
 
+pub use factory::{ParserBackend, ParserFactory};
 pub use parser::AstParser;
-pub use factory::{ParserFactory, ParserBackend};
 pub use service::ASTService;

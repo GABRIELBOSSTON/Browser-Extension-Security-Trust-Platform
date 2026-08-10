@@ -1,5 +1,5 @@
-use crate::domain::errors::Result;
 use crate::domain::ast_visitor::{ASTVisitor, TraversalResult};
+use crate::domain::errors::Result;
 
 #[derive(Debug, Clone)]
 pub struct WalkerConfig {
@@ -23,5 +23,11 @@ impl Default for WalkerConfig {
 }
 
 pub trait ASTWalker: Send + Sync {
-    fn walk(&self, source: &str, file_path: &str, config: &WalkerConfig, visitor: &mut dyn ASTVisitor) -> Result<TraversalResult>;
+    fn walk(
+        &self,
+        source: &str,
+        file_path: &str,
+        config: &WalkerConfig,
+        visitor: &mut dyn ASTVisitor,
+    ) -> Result<TraversalResult>;
 }

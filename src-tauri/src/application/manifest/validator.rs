@@ -5,7 +5,8 @@ pub struct ManifestValidator;
 
 impl ManifestValidator {
     pub fn validate(raw: &RawManifest) -> Result<()> {
-        let version = raw.manifest_version
+        let version = raw
+            .manifest_version
             .ok_or_else(|| DomainError::MissingRequiredField("manifest_version".into()))?;
 
         if version != 2 && version != 3 {

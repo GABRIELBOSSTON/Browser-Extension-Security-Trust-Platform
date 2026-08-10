@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::errors::{DomainError, Result};
+use serde::{Deserialize, Serialize};
 
 /// Bounded Risk Score Value Object (0.0 to 100.0)
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]

@@ -1,11 +1,21 @@
-pub mod manager;
-pub mod factory;
 pub mod chrome_api_detector;
 pub mod dangerous_api_detector;
+pub mod data_exfiltration_detector;
+pub mod factory;
+pub mod fingerprint_detector;
+pub mod manager;
+pub mod obfuscation_detector;
+pub mod rce_detector;
+pub mod scanner;
 pub mod secret_detector;
 
-pub use manager::{DetectorRegistry, DetectorManager};
-pub use factory::DetectorFactory;
 pub use chrome_api_detector::ChromeApiDetector;
 pub use dangerous_api_detector::DangerousApiDetector;
-pub use secret_detector::{SecretDetector, PatternRegistry};
+pub use data_exfiltration_detector::DataExfiltrationDetector;
+pub use factory::DetectorFactory;
+pub use fingerprint_detector::FingerprintDetector;
+pub use manager::{DetectorManager, DetectorRegistry};
+pub use obfuscation_detector::ObfuscationDetector;
+pub use rce_detector::RceDetector;
+pub use scanner::AstScannerService;
+pub use secret_detector::SecretDetector;

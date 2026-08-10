@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AstNodeKind {
@@ -42,6 +42,7 @@ pub struct VisitorContext {
     pub current_module: Option<String>,
     pub parent_stack: Vec<AstNodeKind>,
     pub scope_depth: usize,
+    pub metadata: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Default)]

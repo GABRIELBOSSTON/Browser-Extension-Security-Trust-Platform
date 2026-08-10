@@ -9,7 +9,7 @@ fn main() {
     let duration = start.elapsed();
 
     let mut total_extensions = 0;
-    
+
     println!("Scan Duration: {:?}", duration);
     println!("\nBrowsers Detected:");
     for result in &results {
@@ -17,11 +17,11 @@ fn main() {
         if let Some(err) = &result.error {
             println!("  Error: {}", err);
         }
-        
+
         let count = result.extensions.len();
         total_extensions += count;
         println!("  Extensions Found: {}", count);
-        
+
         if count > 0 {
             // Count profiles
             let mut profiles = std::collections::HashSet::new();
@@ -31,7 +31,7 @@ fn main() {
             println!("  Profiles Detected: {:?}", profiles);
         }
     }
-    
+
     println!("\nTotal Extensions Discovered: {}", total_extensions);
     println!("----------------------------------------------");
 }

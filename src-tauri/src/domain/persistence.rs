@@ -1,10 +1,10 @@
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use crate::domain::types::{RiskScore, Severity};
-use crate::domain::risk_calculator::RiskAssessment;
 use crate::domain::errors::DomainError;
+use crate::domain::risk_calculator::RiskAssessment;
+use crate::domain::types::{RiskScore, Severity};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ScanId(pub Uuid);
@@ -21,7 +21,7 @@ pub struct ScanRecord {
     pub extension_id: String,
     pub extension_name: String,
     pub version: String,
-    pub risk_score: RiskScore, 
+    pub risk_score: RiskScore,
     pub severity: Severity,
     pub scan_timestamp_utc: DateTime<Utc>,
     pub report: ScanReport,

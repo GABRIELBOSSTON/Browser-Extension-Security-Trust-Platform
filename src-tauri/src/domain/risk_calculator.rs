@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use crate::domain::types::{RiskScore, Severity};
 use crate::domain::rules::AggregationPolicy;
+use crate::domain::types::{RiskScore, Severity};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskRuleConfig {

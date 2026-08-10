@@ -1,24 +1,28 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use std::collections::HashMap;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::domain::errors::{Result, DomainError};
+use crate::application::analysis::builder::CapabilityBuilder;
+use crate::application::manifest::service::ManifestService;
+use crate::application::risk::engine::RiskEngine;
+use crate::application::rules::engine::RuleEngine;
+use crate::application::virustotal::VirusTotalEngine;
 use crate::domain::entities::DiscoveredExtension;
+use crate::domain::errors::{DomainError, Result};
 use crate::domain::risk::RiskProfile;
 use crate::domain::rules::RuleSet;
-use crate::application::manifest::service::ManifestService;
-use crate::application::analysis::builder::CapabilityBuilder;
-use crate::application::rules::engine::RuleEngine;
-use crate::application::risk::engine::RiskEngine;
 
-use super::models::{AnalysisContext, PipelineResult, BatchPipelineResult, PipelineMetadata, StageResult};
+use super::models::{
+    AnalysisContext, BatchPipelineResult, PipelineMetadata, PipelineResult, StageResult,
+};
 
 pub struct AnalysisPipeline {
     manifest_service: Arc<ManifestService>,
     rule_engine: Arc<RuleEngine>,
     rule_set: Arc<RuleSet>,
+    vt_engine: Arc<VirusTotalEngine>,
 }
 
 impl AnalysisPipeline {
@@ -26,11 +30,13 @@ impl AnalysisPipeline {
         manifest_service: Arc<ManifestService>,
         rule_engine: Arc<RuleEngine>,
         rule_set: Arc<RuleSet>,
+        vt_engine: Arc<VirusTotalEngine>,
     ) -> Self {
         Self {
             manifest_service,
             rule_engine,
             rule_set,
+            vt_engine,
         }
     }
 
@@ -41,13 +47,17 @@ impl AnalysisPipeline {
         cancel_token: CancellationToken,
     ) -> Result<PipelineResult> {
         let pipeline_id = Uuid::new_v4().to_string();
-        let started_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        let started_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
         let pipeline_start = Instant::now();
 
         // Clone Arcs and structs to move into spawn_blocking
         let _manifest_svc = self.manifest_service.clone();
         let rule_engine = self.rule_engine.clone();
         let rule_set = self.rule_set.clone();
+        let vt_engine = self.vt_engine.clone();
         let target_clone = target.clone();
         let profile_clone = risk_profile.clone();
 
@@ -57,8 +67,12 @@ impl AnalysisPipeline {
 
             // Stage 1: Manifest Parser
             let stage_start = Instant::now();
-            if cancel_token.is_cancelled() { return Err(DomainError::IoError("Cancelled".to_string())); }
-            let manifest = crate::application::manifest::service::ManifestService::load_manifest(std::path::Path::new(&target_clone.install_path))?;
+            if cancel_token.is_cancelled() {
+                return Err(DomainError::IoError("Cancelled".to_string()));
+            }
+            let manifest = crate::application::manifest::service::ManifestService::load_manifest(
+                std::path::Path::new(&target_clone.install_path),
+            )?;
             context.manifest = Some(manifest);
             stage_results.push(StageResult {
                 stage_name: "ManifestParser".to_string(),
@@ -70,8 +84,12 @@ impl AnalysisPipeline {
 
             // Stage 2: Capability Builder
             let stage_start = Instant::now();
-            if cancel_token.is_cancelled() { return Err(DomainError::IoError("Cancelled".to_string())); }
-            let manifest_ref = context.manifest.as_ref()
+            if cancel_token.is_cancelled() {
+                return Err(DomainError::IoError("Cancelled".to_string()));
+            }
+            let manifest_ref = context
+                .manifest
+                .as_ref()
                 .ok_or_else(|| DomainError::IoError("Manifest is missing".to_string()))?;
             let cap_result = CapabilityBuilder::build(manifest_ref)?;
             context.capability_model = Some(cap_result.model);
@@ -86,8 +104,12 @@ impl AnalysisPipeline {
 
             // Stage 3: Rule Engine
             let stage_start = Instant::now();
-            if cancel_token.is_cancelled() { return Err(DomainError::IoError("Cancelled".to_string())); }
-            let cap_ref = context.capability_model.as_ref()
+            if cancel_token.is_cancelled() {
+                return Err(DomainError::IoError("Cancelled".to_string()));
+            }
+            let cap_ref = context
+                .capability_model
+                .as_ref()
                 .ok_or_else(|| DomainError::IoError("Capability model is missing".to_string()))?;
             let rule_result = rule_engine.evaluate(cap_ref);
             context.rule_evaluation = Some(rule_result.clone());
@@ -99,9 +121,34 @@ impl AnalysisPipeline {
                 error: None,
             });
 
+            // Stage X: VirusTotal
+            let stage_start = Instant::now();
+            if cancel_token.is_cancelled() {
+                return Err(DomainError::IoError("Cancelled".to_string()));
+            }
+            let mut vt_warnings = 0;
+            if !vt_engine.is_configured() {
+                context
+                    .warnings
+                    .push("VirusTotal not configured.".to_string());
+                vt_warnings += 1;
+            }
+            let vt_reports =
+                vt_engine.scan_extension(std::path::Path::new(&target_clone.install_path));
+            context.virustotal_reports = Some(vt_reports);
+            stage_results.push(StageResult {
+                stage_name: "VirusTotal".to_string(),
+                status: "Success".to_string(),
+                elapsed_ms: stage_start.elapsed().as_millis() as u64,
+                warning_count: vt_warnings,
+                error: None,
+            });
+
             // Stage 4: Risk Engine
             let stage_start = Instant::now();
-            if cancel_token.is_cancelled() { return Err(DomainError::IoError("Cancelled".to_string())); }
+            if cancel_token.is_cancelled() {
+                return Err(DomainError::IoError("Cancelled".to_string()));
+            }
             let risk_assessment = RiskEngine::assess(&rule_result, &rule_set, &profile_clone);
             context.risk_assessment = Some(risk_assessment.clone());
             stage_results.push(StageResult {
@@ -112,7 +159,10 @@ impl AnalysisPipeline {
                 error: None,
             });
 
-            let finished_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+            let finished_at = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
             let elapsed_ms = pipeline_start.elapsed().as_millis() as u64;
 
             let metadata = PipelineMetadata {
@@ -134,6 +184,7 @@ impl AnalysisPipeline {
                 metadata,
                 target_info: target_clone.clone(),
                 stage_results,
+                virustotal_reports: context.virustotal_reports,
             })
         })
         .await
@@ -160,7 +211,10 @@ impl AnalysisPipeline {
                 break;
             }
 
-            match self.analyze_single(target, risk_profile, cancel_token.clone()).await {
+            match self
+                .analyze_single(target, risk_profile, cancel_token.clone())
+                .await
+            {
                 Ok(result) => {
                     results.push(result);
                     success += 1;

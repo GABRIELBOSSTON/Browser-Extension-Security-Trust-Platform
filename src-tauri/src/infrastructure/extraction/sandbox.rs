@@ -1,10 +1,10 @@
+use crate::domain::errors::{DomainError, Result};
+use crate::domain::extraction::{SandboxContext, SandboxId, SandboxManager};
 use std::env;
 use std::fs;
 use std::sync::Arc;
-use uuid::Uuid;
 use tracing::{info, warn};
-use crate::domain::extraction::{SandboxContext, SandboxId, SandboxManager};
-use crate::domain::errors::{DomainError, Result};
+use uuid::Uuid;
 
 pub struct TempSandboxManager;
 
@@ -28,9 +28,8 @@ impl SandboxManager for TempSandboxManager {
 
     fn destroy_sandbox(&self, context: &SandboxContext) -> Result<()> {
         if context.root_path.exists() {
-            fs::remove_dir_all(&context.root_path).map_err(|e| {
-                DomainError::IoError(format!("Failed to cleanup sandbox: {}", e))
-            })?;
+            fs::remove_dir_all(&context.root_path)
+                .map_err(|e| DomainError::IoError(format!("Failed to cleanup sandbox: {}", e)))?;
             info!("Destroyed sandbox {:?}", context.root_path);
         }
         Ok(())
@@ -52,7 +51,10 @@ impl SandboxHandle {
 impl Drop for SandboxHandle {
     fn drop(&mut self) {
         if let Err(e) = self.manager.destroy_sandbox(&self.context) {
-            warn!("RAII Drop failed to clean up sandbox {:?}: {}", self.context.root_path, e);
+            warn!(
+                "RAII Drop failed to clean up sandbox {:?}: {}",
+                self.context.root_path, e
+            );
         }
     }
 }
@@ -67,15 +69,15 @@ mod tests {
         let manager = Arc::new(TempSandboxManager);
         let context = manager.create_sandbox().unwrap();
         let path = context.root_path.clone();
-        
+
         assert!(path.exists());
-        
+
         {
             let _handle = SandboxHandle::new(context, manager);
             // Handle holds it, still exists
             assert!(path.exists());
         }
-        
+
         // Handle dropped, should be deleted
         assert!(!path.exists());
     }

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::types::PermissionType;
+use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
 
@@ -69,6 +69,23 @@ pub struct PermissionSet {
     pub items: Vec<Permission>,
 }
 
+/// Content Security Policy
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentSecurityPolicy {
+    pub extension_pages: Option<String>,
+    pub sandbox: Option<String>,
+    pub isolated_world: Option<String>,
+    pub raw_policy: Option<String>,
+}
+
+/// Externally Connectable
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternallyConnectable {
+    pub ids: Vec<String>,
+    pub matches: Vec<String>,
+    pub accepts_tls_channel_id: Option<bool>,
+}
+
 /// Manifest entity aggregate
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
@@ -82,6 +99,8 @@ pub struct Manifest {
     pub icons: Option<IconConfig>,
     pub content_scripts: Vec<ContentScriptConfig>,
     pub web_accessible_resources: Vec<WebAccessibleResourceConfig>,
+    pub content_security_policy: Option<ContentSecurityPolicy>,
+    pub externally_connectable: Option<ExternallyConnectable>,
 }
 
 /// Permission entity
@@ -107,5 +126,3 @@ pub struct DiscoveredExtension {
     pub policy_installed: bool,
     pub manifest: Option<Manifest>,
 }
-
-

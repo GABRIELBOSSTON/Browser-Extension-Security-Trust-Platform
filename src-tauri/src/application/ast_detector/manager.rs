@@ -1,5 +1,7 @@
 use crate::domain::ast_detector::{AstDetector, DetectorContext, DetectorResult};
-use crate::domain::ast_visitor::{AstNodeKind, ASTVisitor, TraversalLifecycleEvent, VisitorContext};
+use crate::domain::ast_visitor::{
+    ASTVisitor, AstNodeKind, TraversalLifecycleEvent, VisitorContext,
+};
 
 pub struct DetectorRegistry {
     detectors: Vec<Box<dyn AstDetector>>,
@@ -11,7 +13,15 @@ impl DetectorRegistry {
             detectors: Vec::new(),
         }
     }
+}
 
+impl Default for DetectorRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DetectorRegistry {
     pub fn add_detector(&mut self, detector: Box<dyn AstDetector>) {
         self.detectors.push(detector);
     }
@@ -45,6 +55,7 @@ impl DetectorManager {
         self.context.current_function = walker_ctx.current_function.clone();
         self.context.scope_depth = walker_ctx.scope_depth;
         self.context.node_stack = walker_ctx.parent_stack.clone();
+        self.context.metadata = walker_ctx.metadata.clone();
     }
 }
 
@@ -69,8 +80,10 @@ impl ASTVisitor for DetectorManager {
 
     fn lifecycle(&mut self, event: TraversalLifecycleEvent, walker_ctx: &mut VisitorContext) {
         self.sync_context(walker_ctx);
-        
-        if event == TraversalLifecycleEvent::TraversalFinished || event == TraversalLifecycleEvent::TraversalCancelled {
+
+        if event == TraversalLifecycleEvent::TraversalFinished
+            || event == TraversalLifecycleEvent::TraversalCancelled
+        {
             for det in self.registry.get_detectors_mut() {
                 let mut result = det.finish(&mut self.context);
                 if event == TraversalLifecycleEvent::TraversalCancelled {
@@ -92,8 +105,12 @@ mod tests {
     }
 
     impl AstDetector for MockDetectorA {
-        fn detector_id(&self) -> &str { "MOCK-001" }
-        fn detector_name(&self) -> &str { "Mock Detector A" }
+        fn detector_id(&self) -> &str {
+            "MOCK-001"
+        }
+        fn detector_name(&self) -> &str {
+            "Mock Detector A"
+        }
         fn supported_nodes(&self) -> &'static [AstNodeKind] {
             &[AstNodeKind::CallExpression]
         }
@@ -109,7 +126,12 @@ mod tests {
                 findings.push(DetectionFinding {
                     finding_id: "F-001".to_string(),
                     node_kind: AstNodeKind::CallExpression,
-                    location: SourceLocation { line: 1, column: 1, start_offset: 0, end_offset: 10 },
+                    location: SourceLocation {
+                        line: 1,
+                        column: 1,
+                        start_offset: 0,
+                        end_offset: 10,
+                    },
                     message: "Found call expression".to_string(),
                     metadata: std::collections::HashMap::new(),
                 });
@@ -132,8 +154,12 @@ mod tests {
     }
 
     impl AstDetector for MockDetectorB {
-        fn detector_id(&self) -> &str { "MOCK-002" }
-        fn detector_name(&self) -> &str { "Mock Detector B" }
+        fn detector_id(&self) -> &str {
+            "MOCK-002"
+        }
+        fn detector_name(&self) -> &str {
+            "Mock Detector B"
+        }
         fn supported_nodes(&self) -> &'static [AstNodeKind] {
             &[AstNodeKind::FunctionDeclaration]
         }
@@ -175,12 +201,18 @@ mod tests {
 
         let results = manager.take_results();
         assert_eq!(results.len(), 2);
-        
-        let result_a = results.iter().find(|r| r.detector_id == "MOCK-001").unwrap();
+
+        let result_a = results
+            .iter()
+            .find(|r| r.detector_id == "MOCK-001")
+            .unwrap();
         assert_eq!(result_a.visited_nodes, 1);
         assert_eq!(result_a.findings.len(), 1);
 
-        let result_b = results.iter().find(|r| r.detector_id == "MOCK-002").unwrap();
+        let result_b = results
+            .iter()
+            .find(|r| r.detector_id == "MOCK-002")
+            .unwrap();
         assert_eq!(result_b.visited_nodes, 0);
         assert_eq!(result_b.findings.len(), 0);
     }

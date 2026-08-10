@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use crate::domain::ast_detector::SourceLocation;
 use crate::domain::call_graph::FunctionId;
