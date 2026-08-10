@@ -65,6 +65,16 @@ impl IocEngine {
             }
         }
 
+        let mut seen = std::collections::HashSet::new();
+        let mut deduped = Vec::new();
+        for finding in all_findings {
+            let id = format!("{}|{}|{}", finding.file, finding.line, finding.description);
+            if seen.insert(id) {
+                deduped.push(finding);
+            }
+        }
+        all_findings = deduped;
+
         // Sort: Critical first, then High, Medium, Low; secondary: file + line
         all_findings.sort_by(|a, b| {
             Self::severity_order(&a.severity.to_string())

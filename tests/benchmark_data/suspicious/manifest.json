@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "name": "Suspicious Test Extension",
+  "version": "1.0",
+  "description": "A suspicious but possibly benign extension",
+  "permissions": ["<all_urls>", "tabs"],
+  "background": {
+    "scripts": ["background.js"]
+  }
+}

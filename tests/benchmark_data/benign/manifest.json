@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Benign Test Extension",
+  "version": "1.0",
+  "description": "A benign extension for testing",
+  "permissions": ["storage"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

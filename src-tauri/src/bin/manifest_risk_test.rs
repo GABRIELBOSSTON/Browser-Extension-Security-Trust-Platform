@@ -34,7 +34,7 @@ fn main() {
                         "version": ext.version,
                         "risk_score": risk_assessment.score,
                         "risk_category": format!("{:?}", risk_assessment.category),
-                        "reasons": risk_assessment.reasons,
+                        "findings": risk_assessment.findings,
                     });
                     all_results.push(analysis);
                 }

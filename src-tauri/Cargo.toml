@@ -6,6 +6,18 @@ authors = ["Antigraviiti Security Engineering Team"]
 edition = "2021"
 default-run = "antigraviiti-extension-protect"
 
+[[bin]]
+name = "antigraviiti-extension-protect"
+path = "src/main.rs"
+
+[[bin]]
+name = "validate"
+path = "src/bin/validate.rs"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.0.0", features = [] }
 

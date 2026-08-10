@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "name": "Malicious Synthetic Extension",
+  "version": "1.0",
+  "description": "A synthetic malicious extension for benchmarking",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>",
+    "nativeMessaging",
+    "cookies"
+  ],
+  "background": {
+    "scripts": ["malware.js"]
+  }
+}

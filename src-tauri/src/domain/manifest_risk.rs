@@ -9,9 +9,11 @@ pub enum RiskCategory {
     Critical,
 }
 
+use crate::domain::evidence::EvidenceItem;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManifestRiskScore {
     pub score: u32,
     pub category: RiskCategory,
-    pub reasons: Vec<String>,
+    pub findings: Vec<EvidenceItem>,
 }

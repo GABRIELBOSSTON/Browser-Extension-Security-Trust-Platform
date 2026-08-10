@@ -1,4 +1,5 @@
 use crate::domain::entities::{BackgroundConfig, Manifest, ManifestVersion};
+use crate::domain::evidence::EvidenceItem;
 use crate::domain::manifest_risk::{ManifestRiskScore, RiskCategory};
 
 pub struct ManifestRiskEngine;
@@ -6,11 +7,25 @@ pub struct ManifestRiskEngine;
 impl ManifestRiskEngine {
     pub fn analyze(manifest: &Manifest) -> ManifestRiskScore {
         let mut score: u32 = 0;
-        let mut reasons = Vec::new();
+        let mut findings = Vec::new();
 
         let mut add_score = |points: u32, reason: &str| {
             score += points;
-            reasons.push(reason.to_string());
+
+            let severity = match points {
+                0..=10 => "Low",
+                11..=30 => "Medium",
+                31..=50 => "High",
+                _ => "Critical",
+            }
+            .to_string();
+
+            findings.push(EvidenceItem {
+                category: "Manifest".to_string(),
+                detail: reason.to_string(),
+                severity,
+                base_score: points as i32,
+            });
         };
 
         let mut has_cookies = false;
@@ -32,6 +47,7 @@ impl ManifestRiskEngine {
             }
 
             match perm_str {
+                "<all_urls>" | "*://*/*" => add_score(40, perm_str),
                 "nativeMessaging" | "debugger" => add_score(40, perm_str),
                 "proxy" | "cookies" | "management" | "webRequestBlocking" => {
                     add_score(20, perm_str)
@@ -108,7 +124,7 @@ impl ManifestRiskEngine {
         ManifestRiskScore {
             score: final_score,
             category,
-            reasons,
+            findings,
         }
     }
 }
@@ -154,7 +170,7 @@ mod tests {
         let result = ManifestRiskEngine::analyze(&manifest);
         assert_eq!(result.score, 0);
         assert_eq!(result.category, RiskCategory::Safe);
-        assert!(result.reasons.is_empty());
+        assert!(result.findings.is_empty());
     }
 
     #[test]
@@ -170,7 +186,8 @@ mod tests {
         let result = ManifestRiskEngine::analyze(&manifest);
         assert_eq!(result.score, 40);
         assert_eq!(result.category, RiskCategory::Low);
-        assert_eq!(result.reasons, vec!["nativeMessaging"]);
+        assert_eq!(result.findings.len(), 1);
+        assert_eq!(result.findings[0].detail, "nativeMessaging");
     }
 
     #[test]
@@ -200,7 +217,7 @@ mod tests {
         let result = ManifestRiskEngine::analyze(&manifest);
         assert_eq!(result.score, 100);
         assert_eq!(result.category, RiskCategory::Critical);
-        assert_eq!(result.reasons.len(), 4);
+        assert_eq!(result.findings.len(), 4);
     }
 
     #[test]
@@ -223,8 +240,9 @@ mod tests {
         // unsafe-inline (5) + unsafe-eval (5) + inject <all_urls> (5) = 15
         assert_eq!(result.score, 15);
         assert_eq!(result.category, RiskCategory::Safe);
+        let reasons: Vec<String> = result.findings.into_iter().map(|f| f.detail).collect();
         assert_eq!(
-            result.reasons,
+            reasons,
             vec!["unsafe-inline", "unsafe-eval", "Inject to <all_urls>"]
         );
     }
@@ -255,8 +273,29 @@ mod tests {
         // cookies (20) + tabs (10) + stealer pattern (50) = 80
         assert_eq!(result.score, 80);
         assert_eq!(result.category, RiskCategory::High);
-        assert!(result
-            .reasons
-            .contains(&"Password Stealer Pattern (cookies + tabs + webRequest)".to_string()));
+        let reasons: Vec<String> = result.findings.into_iter().map(|f| f.detail).collect();
+        assert!(
+            reasons.contains(&"Password Stealer Pattern (cookies + tabs + webRequest)".to_string())
+        );
+    }
+
+    #[test]
+    fn test_all_urls_scoring_regression() {
+        let mut manifest = base_manifest();
+        manifest.permissions.items.push(Permission {
+            permission_id: "<all_urls>".to_string(),
+            permission_string: "<all_urls>".to_string(),
+            permission_type: PermissionType::ChromeApi,
+            weight: 0.0,
+        });
+
+        let result = ManifestRiskEngine::analyze(&manifest);
+        // <all_urls> is explicitly assigned 40 points (High), not 80 points (Critical).
+        assert_eq!(result.score, 40);
+        assert_eq!(result.category, RiskCategory::Low);
+        assert_eq!(result.findings.len(), 1);
+        assert_eq!(result.findings[0].detail, "<all_urls>");
+        assert_eq!(result.findings[0].base_score, 40);
+        assert_eq!(result.findings[0].severity, "High");
     }
 }

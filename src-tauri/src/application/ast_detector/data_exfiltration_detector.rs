@@ -33,11 +33,11 @@ impl DataExfiltrationDetector {
         // Exact callee names we care about
         match name {
             "fetch" => Some((
-                "High",
+                "Low",
                 "Data Exfiltration: fetch() can send extension data to remote servers",
             )),
             "XMLHttpRequest" | "XmlHttpRequest" => Some((
-                "High",
+                "Low",
                 "Data Exfiltration: XMLHttpRequest can send data to remote servers",
             )),
             "navigator.sendBeacon" | "sendBeacon" => Some((
@@ -161,7 +161,7 @@ mod tests {
         det.enter(AstNodeKind::CallExpression, &mut ctx);
         let result = det.finish(&mut ctx);
         assert_eq!(result.findings.len(), 1);
-        assert_eq!(result.findings[0].metadata["severity"], "High");
+        assert_eq!(result.findings[0].metadata["severity"], "Low");
         assert!(result.findings[0].message.contains("fetch()"));
     }
 

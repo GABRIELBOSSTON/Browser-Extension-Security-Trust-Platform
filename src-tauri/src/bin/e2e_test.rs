@@ -3,7 +3,7 @@ use antigraviiti_extension_protect::application::explanation_engine::{
     ExplanationEngine, ExplanationInput,
 };
 use antigraviiti_extension_protect::application::manifest::service::ManifestService;
-use antigraviiti_extension_protect::application::risk::manifest_risk::ManifestRiskEngine;
+use antigraviiti_extension_protect::application::risk::unified_risk::UnifiedRiskService;
 use antigraviiti_extension_protect::presentation::commands::ExtensionAnalysisResponse;
 use std::path::PathBuf;
 
@@ -28,150 +28,22 @@ async fn main() {
             }
 
             if let Ok(manifest) = ManifestService::load_manifest(&manifest_path) {
-                let risk_assessment = ManifestRiskEngine::analyze(&manifest);
-
                 let extension_dir = PathBuf::from(&ext.install_path);
-                let (ast_findings, mut ioc_findings, vt_reports) = if extension_dir.exists() {
-                    let ast = antigraviiti_extension_protect::application::ast_detector::scanner::AstScannerService::scan_directory(&extension_dir);
-                    let ioc =
-                        antigraviiti_extension_protect::application::ioc::IocEngine::scan_directory(
-                            &extension_dir,
-                        );
-                    let vts = if let Some(vt) = &vt_engine {
-                        vt.scan_extension(&extension_dir)
-                    } else {
-                        Vec::new()
-                    };
-                    (ast, ioc, vts)
-                } else {
-                    (Vec::new(), Vec::new(), Vec::new())
-                };
+                let manifest_content = std::fs::read_to_string(&manifest_path).ok();
 
-                if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
-                    let manifest_iocs =
-                        antigraviiti_extension_protect::application::ioc::IocEngine::scan_manifest(
-                            &manifest_content,
-                            "manifest.json",
-                        );
-                    ioc_findings.extend(manifest_iocs);
-                }
+                let risk_result = UnifiedRiskService::analyze_extension(
+                    &extension_dir,
+                    &ext.extension_id,
+                    &manifest,
+                    manifest_content.as_deref(),
+                    vt_engine.as_ref(),
+                );
 
-                let mut evidence_items = Vec::new();
+                let final_score = risk_result.correlation.final_score;
+                let final_level = risk_result.correlation.final_level;
 
-                for reason in &risk_assessment.reasons {
-                    let lower = reason.to_lowercase();
-                    let sev = if lower.contains("password stealer")
-                        || lower.contains("nativemessaging")
-                        || lower.contains("debugger")
-                        || lower.contains("<all_urls>")
-                        || lower.contains("*://*/*")
-                    {
-                        ("Critical", 80)
-                    } else if lower.contains("proxy")
-                        || lower.contains("cookies")
-                        || lower.contains("management")
-                        || lower.contains("webrequest")
-                    {
-                        ("High", 40)
-                    } else if lower.contains("history")
-                        || lower.contains("tabs")
-                        || lower.contains("unsafe-inline")
-                        || lower.contains("unsafe-eval")
-                    {
-                        ("Medium", 20)
-                    } else {
-                        ("Low", 5)
-                    };
-                    evidence_items.push(
-                        antigraviiti_extension_protect::domain::evidence::EvidenceItem {
-                            category: "Manifest".to_string(),
-                            detail: reason.clone(),
-                            severity: sev.0.to_string(),
-                            base_score: sev.1,
-                        },
-                    );
-                }
-
-                for finding in &ast_findings {
-                    let base_score = match finding.severity.as_str() {
-                        "Critical" => 80,
-                        "High" => 40,
-                        "Medium" => 20,
-                        "Low" => 5,
-                        _ => 0,
-                    };
-                    evidence_items.push(
-                        antigraviiti_extension_protect::domain::evidence::EvidenceItem {
-                            category: "Code Analysis".to_string(),
-                            detail: finding.reason.clone(),
-                            severity: finding.severity.clone(),
-                            base_score,
-                        },
-                    );
-                }
-
-                for finding in &ioc_findings {
-                    let sev_str = format!("{:?}", finding.severity);
-                    let base_score = match sev_str.as_str() {
-                        "Critical" => 80,
-                        "High" => 40,
-                        "Medium" => 20,
-                        "Low" => 5,
-                        _ => 0,
-                    };
-                    evidence_items.push(
-                        antigraviiti_extension_protect::domain::evidence::EvidenceItem {
-                            category: "IOC".to_string(),
-                            detail: finding.title.clone(),
-                            severity: sev_str,
-                            base_score,
-                        },
-                    );
-                }
-
-                for vt in &vt_reports {
-                    if vt.malicious > 0 {
-                        evidence_items.push(
-                            antigraviiti_extension_protect::domain::evidence::EvidenceItem {
-                                category: "VirusTotal".to_string(),
-                                detail: "Flagged as Malicious".to_string(),
-                                severity: "Critical".to_string(),
-                                base_score: 80,
-                            },
-                        );
-                    } else if vt.suspicious > 0 {
-                        evidence_items.push(
-                            antigraviiti_extension_protect::domain::evidence::EvidenceItem {
-                                category: "VirusTotal".to_string(),
-                                detail: "Flagged as Suspicious".to_string(),
-                                severity: "High".to_string(),
-                                base_score: 40,
-                            },
-                        );
-                    }
-                }
-
-                let trusted =
-                    antigraviiti_extension_protect::domain::trust::TrustRegistry::is_trusted(
-                        &ext.extension_id,
-                    );
-                if trusted {
-                    evidence_items.push(
-                        antigraviiti_extension_protect::domain::evidence::EvidenceItem {
-                            category: "Trust".to_string(),
-                            detail: "Trusted Publisher".to_string(),
-                            severity: "Good".to_string(),
-                            base_score: -30,
-                        },
-                    );
-                }
-
-                let correlation = antigraviiti_extension_protect::application::risk::correlator::RiskCorrelator::correlate(evidence_items);
-
-                let final_score = correlation.final_score;
-                let final_level = correlation.final_level;
-
-                let final_reasons: Vec<String> = correlation
+                let final_reasons: Vec<String> = risk_result
+                    .correlation
                     .evidence
                     .iter()
                     .take(5)
@@ -214,25 +86,25 @@ async fn main() {
                     reasons: final_reasons.clone(),
                     permissions: permissions.clone(),
                     host_permissions: host_permissions.clone(),
-                    content_scripts,
-                    background,
-                    csp,
-                    ast_findings: ast_findings.clone(),
-                    ioc_findings,
-                    vt_reports,
-                    trusted,
+                    content_scripts: content_scripts.clone(),
+                    background: background.clone(),
+                    csp: csp.clone(),
+                    ast_findings: risk_result.ast_findings.clone(),
+                    ioc_findings: risk_result.ioc_findings,
+                    vt_reports: risk_result.vt_reports,
+                    trusted: risk_result.trusted,
                 };
 
                 let explanation_input = ExplanationInput {
-                    extension_id: ext.extension_id,
-                    extension_name: ext.name,
+                    extension_id: ext.extension_id.clone(),
+                    extension_name: ext.name.clone(),
                     risk_score: final_score,
                     risk_level: final_level.to_string(),
                     manifest_reasons: final_reasons,
-                    permissions,
-                    host_permissions,
-                    ast_findings,
-                    correlated_evidence: correlation.evidence,
+                    permissions: permissions.clone(),
+                    host_permissions: host_permissions.clone(),
+                    ast_findings: risk_result.ast_findings,
+                    correlated_evidence: risk_result.correlation.evidence,
                 };
 
                 let explanation = ExplanationEngine::explain(&explanation_input);
