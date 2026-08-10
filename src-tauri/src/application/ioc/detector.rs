@@ -628,8 +628,11 @@ mod tests {
     #[test]
     fn test_secret_google_api_key_critical() {
         let det = SecretIocDetector;
-        let src = r#"const key = "AIzaSyD-9tSrke72I6e0IV6zL73XXXXXXXXXXXX";"#;
-        let findings = det.scan(src, "config.js");
+        let src = format!(
+            "const key = \"{}{}\";",
+            "AIzaSy", "D-9tSrke72I6e0IV6zL73XXXXXXXXXXXX"
+        );
+        let findings = det.scan(&src, "config.js");
         assert!(!findings.is_empty());
         assert_eq!(findings[0].severity, IocSeverity::Critical);
         assert!(findings[0].title.contains("Google"));
@@ -638,8 +641,8 @@ mod tests {
     #[test]
     fn test_secret_aws_key_critical() {
         let det = SecretIocDetector;
-        let src = r#"const awsKey = "AKIAIOSFODNN7EXAMPLE";"#;
-        let findings = det.scan(src, "aws.js");
+        let src = format!("const awsKey = \"{}{}\";", "AKIA", "IOSFODNN7EXAMPLE");
+        let findings = det.scan(&src, "aws.js");
         assert!(!findings.is_empty());
         assert_eq!(findings[0].severity, IocSeverity::Critical);
         assert!(findings[0].title.contains("AWS"));
@@ -648,8 +651,11 @@ mod tests {
     #[test]
     fn test_secret_github_pat_critical() {
         let det = SecretIocDetector;
-        let src = r#"const token = "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789";"#;
-        let findings = det.scan(src, "auth.js");
+        let src = format!(
+            "const token = \"{}{}\";",
+            "ghp_", "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
+        );
+        let findings = det.scan(&src, "auth.js");
         assert!(!findings.is_empty());
         assert_eq!(findings[0].severity, IocSeverity::Critical);
     }
@@ -657,8 +663,11 @@ mod tests {
     #[test]
     fn test_secret_bearer_token_high() {
         let det = SecretIocDetector;
-        let src = r#"headers["Authorization"] = "Bearer eyABCDEFGHIJKLMNOPQRSTUVWXYZ";"#;
-        let findings = det.scan(src, "net.js");
+        let src = format!(
+            "headers[\"Authorization\"] = \"{} {}\";",
+            "Bearer", "eyABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        );
+        let findings = det.scan(&src, "net.js");
         assert!(!findings.is_empty());
         assert_eq!(findings[0].severity, IocSeverity::High);
     }
@@ -666,8 +675,11 @@ mod tests {
     #[test]
     fn test_secret_private_key_critical() {
         let det = SecretIocDetector;
-        let src = "const pem = `-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgk=\n-----END PRIVATE KEY-----`;";
-        let findings = det.scan(src, "sign.js");
+        let src = format!(
+            "const pem = `-----{}-----\n{}\n-----{}-----`;",
+            "BEGIN PRIVATE KEY", "MIIEvAIBADANBgk=", "END PRIVATE KEY"
+        );
+        let findings = det.scan(&src, "sign.js");
         assert!(!findings.is_empty());
         assert_eq!(findings[0].severity, IocSeverity::Critical);
     }
@@ -675,8 +687,12 @@ mod tests {
     #[test]
     fn test_secret_jwt_high() {
         let det = SecretIocDetector;
-        let src = r#"const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ";"#;
-        let findings = det.scan(src, "token.js");
+        let src = format!(
+            "const jwt = \"{}.{}\";",
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+            "eyJzdWIiOiIxMjM0NTY3ODkwIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ"
+        );
+        let findings = det.scan(&src, "token.js");
         assert!(!findings.is_empty());
         assert_eq!(findings[0].severity, IocSeverity::High);
     }

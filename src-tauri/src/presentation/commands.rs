@@ -201,47 +201,113 @@ pub async fn scan_extensions(
                     ioc_findings.extend(manifest_iocs);
                 }
 
-                let mut extra_score = 0;
-                let mut ast_reasons = Vec::new();
+                let mut evidence_items = Vec::new();
+
+                for reason in &risk_assessment.reasons {
+                    let lower = reason.to_lowercase();
+                    let sev = if lower.contains("password stealer")
+                        || lower.contains("nativemessaging")
+                        || lower.contains("debugger")
+                        || lower.contains("<all_urls>")
+                        || lower.contains("*://*/*")
+                    {
+                        ("Critical", 80)
+                    } else if lower.contains("proxy")
+                        || lower.contains("cookies")
+                        || lower.contains("management")
+                        || lower.contains("webrequest")
+                    {
+                        ("High", 40)
+                    } else if lower.contains("history")
+                        || lower.contains("tabs")
+                        || lower.contains("unsafe-inline")
+                        || lower.contains("unsafe-eval")
+                    {
+                        ("Medium", 20)
+                    } else {
+                        ("Low", 5)
+                    };
+                    evidence_items.push(crate::domain::evidence::EvidenceItem {
+                        category: "Manifest".to_string(),
+                        detail: reason.clone(),
+                        severity: sev.0.to_string(),
+                        base_score: sev.1,
+                    });
+                }
+
                 for finding in &ast_findings {
-                    match finding.severity.as_str() {
-                        "Critical" => {
-                            if extra_score < 20 {
-                                extra_score = 20;
-                            }
-                            ast_reasons.push(format!("AST Critical: {}", finding.reason));
-                        }
-                        "High" if extra_score < 10 => {
-                            extra_score = 10;
-                        }
-                        "Medium" if extra_score < 5 => {
-                            extra_score = 5;
-                        }
-                        _ => {}
+                    let base_score = match finding.severity.as_str() {
+                        "Critical" => 80,
+                        "High" => 40,
+                        "Medium" => 20,
+                        "Low" => 5,
+                        _ => 0,
+                    };
+                    evidence_items.push(crate::domain::evidence::EvidenceItem {
+                        category: "Code Analysis".to_string(),
+                        detail: finding.reason.clone(),
+                        severity: finding.severity.clone(),
+                        base_score,
+                    });
+                }
+
+                for finding in &ioc_findings {
+                    let sev_str = format!("{:?}", finding.severity);
+                    let base_score = match sev_str.as_str() {
+                        "Critical" => 80,
+                        "High" => 40,
+                        "Medium" => 20,
+                        "Low" => 5,
+                        _ => 0,
+                    };
+                    evidence_items.push(crate::domain::evidence::EvidenceItem {
+                        category: "IOC".to_string(),
+                        detail: finding.title.clone(),
+                        severity: sev_str,
+                        base_score,
+                    });
+                }
+
+                for vt in &vt_reports {
+                    if vt.malicious > 0 {
+                        evidence_items.push(crate::domain::evidence::EvidenceItem {
+                            category: "VirusTotal".to_string(),
+                            detail: "Flagged as Malicious".to_string(),
+                            severity: "Critical".to_string(),
+                            base_score: 80,
+                        });
+                    } else if vt.suspicious > 0 {
+                        evidence_items.push(crate::domain::evidence::EvidenceItem {
+                            category: "VirusTotal".to_string(),
+                            detail: "Flagged as Suspicious".to_string(),
+                            severity: "High".to_string(),
+                            base_score: 40,
+                        });
                     }
                 }
 
-                let mut final_score = (risk_assessment.score + extra_score).min(100);
                 let trusted = crate::domain::trust::TrustRegistry::is_trusted(&ext.extension_id);
-                
-                // If it's a trusted extension, cap the risk score so it never shows as Critical
-                if trusted && final_score > 60 {
-                    final_score = 60; // Cap at Medium/High boundary
+                if trusted {
+                    evidence_items.push(crate::domain::evidence::EvidenceItem {
+                        category: "Trust".to_string(),
+                        detail: "Trusted Publisher".to_string(),
+                        severity: "Good".to_string(),
+                        base_score: -30,
+                    });
                 }
 
-                let final_level = match final_score {
-                    0..=20 => "Safe",
-                    21..=40 => "Low",
-                    41..=60 => "Medium",
-                    61..=80 => "High",
-                    _ => "Critical",
-                };
+                let correlation =
+                    crate::application::risk::correlator::RiskCorrelator::correlate(evidence_items);
 
-                let mut final_reasons = risk_assessment.reasons;
-                // Deduplicate and take top AST reasons so UI doesn't blow up
-                ast_reasons.sort();
-                ast_reasons.dedup();
-                final_reasons.extend(ast_reasons.into_iter().take(5));
+                let final_score = correlation.final_score;
+                let final_level = correlation.final_level;
+
+                let final_reasons: Vec<String> = correlation
+                    .evidence
+                    .iter()
+                    .take(5)
+                    .map(|e| format!("[{}] {}", e.severity, e.detail))
+                    .collect();
 
                 let permissions = manifest
                     .permissions
@@ -305,6 +371,9 @@ pub struct ExplainExtensionRequest {
     pub permissions: Vec<String>,
     pub host_permissions: Vec<String>,
     pub ast_findings: Vec<crate::application::ast_detector::scanner::ASTFinding>,
+    pub ioc_findings: Vec<crate::application::ioc::models::IOCFinding>,
+    pub vt_reports: Vec<crate::application::virustotal::models::VirusTotalReport>,
+    pub trusted: bool,
 }
 
 #[tauri::command]
@@ -313,15 +382,112 @@ pub fn explain_extension(
 ) -> Result<crate::domain::explanation::SecurityExplanation, String> {
     use crate::application::explanation_engine::{ExplanationEngine, ExplanationInput};
 
+    let mut evidence_items = Vec::new();
+
+    for reason in &request.reasons {
+        let mut sev = "Low";
+        let mut base_score = 5;
+        if reason.starts_with("[Critical]") {
+            sev = "Critical";
+            base_score = 80;
+        } else if reason.starts_with("[High]") {
+            sev = "High";
+            base_score = 40;
+        } else if reason.starts_with("[Medium]") {
+            sev = "Medium";
+            base_score = 20;
+        } else if reason.starts_with("[Safe]") {
+            sev = "Safe";
+            base_score = 0;
+        }
+
+        let detail = if let Some(idx) = reason.find("] ") {
+            reason[idx + 2..].to_string()
+        } else {
+            reason.clone()
+        };
+
+        evidence_items.push(crate::domain::evidence::EvidenceItem {
+            category: "Manifest".to_string(), // fallback
+            detail: detail.clone(),
+            severity: sev.to_string(),
+            base_score,
+        });
+    }
+
+    for finding in &request.ast_findings {
+        let base_score = match finding.severity.as_str() {
+            "Critical" => 80,
+            "High" => 40,
+            "Medium" => 20,
+            "Low" => 5,
+            _ => 0,
+        };
+        evidence_items.push(crate::domain::evidence::EvidenceItem {
+            category: "Code Analysis".to_string(),
+            detail: finding.reason.clone(),
+            severity: finding.severity.clone(),
+            base_score,
+        });
+    }
+
+    for finding in &request.ioc_findings {
+        let sev_str = format!("{:?}", finding.severity);
+        let base_score = match sev_str.as_str() {
+            "Critical" => 80,
+            "High" => 40,
+            "Medium" => 20,
+            "Low" => 5,
+            _ => 0,
+        };
+        evidence_items.push(crate::domain::evidence::EvidenceItem {
+            category: "IOC".to_string(),
+            detail: finding.title.clone(),
+            severity: sev_str,
+            base_score,
+        });
+    }
+
+    for vt in &request.vt_reports {
+        if vt.malicious > 0 {
+            evidence_items.push(crate::domain::evidence::EvidenceItem {
+                category: "VirusTotal".to_string(),
+                detail: "Flagged as Malicious".to_string(),
+                severity: "Critical".to_string(),
+                base_score: 80,
+            });
+        } else if vt.suspicious > 0 {
+            evidence_items.push(crate::domain::evidence::EvidenceItem {
+                category: "VirusTotal".to_string(),
+                detail: "Flagged as Suspicious".to_string(),
+                severity: "High".to_string(),
+                base_score: 40,
+            });
+        }
+    }
+
+    if request.trusted {
+        evidence_items.push(crate::domain::evidence::EvidenceItem {
+            category: "Trust".to_string(),
+            detail: "Trusted Publisher".to_string(),
+            severity: "Good".to_string(),
+            base_score: -30,
+        });
+    }
+
+    let correlation =
+        crate::application::risk::correlator::RiskCorrelator::correlate(evidence_items);
+
     let input = ExplanationInput {
         extension_id: request.extension_id,
         extension_name: request.extension_name,
         risk_score: request.risk_score,
         risk_level: request.risk_level,
-        manifest_reasons: request.reasons,
+        manifest_reasons: request.reasons, // Pass raw strings down so regex matches in build_impact still work
         permissions: request.permissions,
         host_permissions: request.host_permissions,
         ast_findings: request.ast_findings,
+        correlated_evidence: correlation.evidence,
     };
 
     Ok(ExplanationEngine::explain(&input))

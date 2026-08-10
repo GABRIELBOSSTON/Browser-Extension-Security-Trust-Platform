@@ -14,8 +14,8 @@ pub struct ExplanationInput {
     pub permissions: Vec<String>,
     /// Raw host permissions list
     pub host_permissions: Vec<String>,
-    /// AST-level findings (from AstScannerService)
     pub ast_findings: Vec<ASTFinding>,
+    pub correlated_evidence: Vec<crate::domain::evidence::EvidenceItem>,
 }
 
 /// Rule-template driven explanation engine.
@@ -122,66 +122,13 @@ impl ExplanationEngine {
 
     fn build_evidence(input: &ExplanationInput) -> Vec<Evidence> {
         let mut evidence: Vec<Evidence> = Vec::new();
-
-        // 1. Manifest permission evidence
-        for reason in &input.manifest_reasons {
-            let severity = Self::classify_reason_severity(reason);
+        for item in &input.correlated_evidence {
             evidence.push(Evidence {
-                category: "Manifest".to_string(),
-                detail: reason.clone(),
-                severity,
+                category: item.category.clone(),
+                detail: item.detail.clone(),
+                severity: item.severity.clone(),
             });
         }
-
-        // 2. Host permissions evidence
-        for host in &input.host_permissions {
-            let (sev, detail) = match host.as_str() {
-                "<all_urls>" | "*://*/*" => (
-                    "Critical",
-                    format!(
-                        "Host permission \"{}\" grants read/write access to every website",
-                        host
-                    ),
-                ),
-                h if h.starts_with("http://") => (
-                    "High",
-                    format!(
-                        "Host permission \"{}\" allows intercepting insecure HTTP traffic",
-                        h
-                    ),
-                ),
-                h => (
-                    "Low",
-                    format!(
-                        "Host permission \"{}\" grants access to matching origins",
-                        h
-                    ),
-                ),
-            };
-            evidence.push(Evidence {
-                category: "Host Permission".to_string(),
-                detail,
-                severity: sev.to_string(),
-            });
-        }
-
-        // 3. AST finding evidence (deduplicated by reason)
-        let mut seen_reasons = std::collections::HashSet::new();
-        for finding in &input.ast_findings {
-            if seen_reasons.insert(finding.reason.clone()) {
-                evidence.push(Evidence {
-                    category: format!("Code Analysis ({})", finding.node_type),
-                    detail: format!(
-                        "{} — found in {}:{}",
-                        finding.reason, finding.filename, finding.line
-                    ),
-                    severity: finding.severity.clone(),
-                });
-            }
-        }
-
-        // Sort: Critical first, then High, Medium, Low
-        evidence.sort_by_key(|e| Self::severity_order(&e.severity));
         evidence
     }
 
@@ -427,44 +374,6 @@ impl ExplanationEngine {
 
         recs
     }
-
-    // ─── Helpers ────────────────────────────────────────────────────────────
-
-    fn classify_reason_severity(reason: &str) -> String {
-        let lower = reason.to_lowercase();
-        if lower.contains("password stealer")
-            || lower.contains("nativemessaging")
-            || lower.contains("debugger")
-            || lower.contains("<all_urls>")
-            || lower.contains("*://*/*")
-        {
-            "Critical".to_string()
-        } else if lower.contains("proxy")
-            || lower.contains("cookies")
-            || lower.contains("management")
-            || lower.contains("webrequest")
-        {
-            "High".to_string()
-        } else if lower.contains("history")
-            || lower.contains("tabs")
-            || lower.contains("unsafe-inline")
-            || lower.contains("unsafe-eval")
-        {
-            "Medium".to_string()
-        } else {
-            "Low".to_string()
-        }
-    }
-
-    fn severity_order(severity: &str) -> u8 {
-        match severity.to_lowercase().as_str() {
-            "critical" => 0,
-            "high" => 1,
-            "medium" => 2,
-            "low" => 3,
-            _ => 4,
-        }
-    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -485,6 +394,7 @@ mod tests {
             permissions: vec![],
             host_permissions: vec![],
             ast_findings: vec![],
+            correlated_evidence: vec![],
         }
     }
 
@@ -507,6 +417,14 @@ mod tests {
         input.risk_level = "Low".to_string();
         input.manifest_reasons = vec!["nativeMessaging".to_string()];
         input.permissions = vec!["nativeMessaging".to_string()];
+        input
+            .correlated_evidence
+            .push(crate::domain::evidence::EvidenceItem {
+                category: "Manifest".to_string(),
+                detail: "nativeMessaging".to_string(),
+                severity: "Critical".to_string(),
+                base_score: 80,
+            });
 
         let result = ExplanationEngine::explain(&input);
 
@@ -551,6 +469,14 @@ mod tests {
         input.risk_score = 60;
         input.risk_level = "Medium".to_string();
         input.host_permissions = vec!["<all_urls>".to_string()];
+        input
+            .correlated_evidence
+            .push(crate::domain::evidence::EvidenceItem {
+                category: "Host Permission".to_string(),
+                detail: "<all_urls>".to_string(),
+                severity: "Critical".to_string(),
+                base_score: 80,
+            });
 
         let result = ExplanationEngine::explain(&input);
 
@@ -576,6 +502,14 @@ mod tests {
             reason: "Remote Code Execution: eval() executes arbitrary code".to_string(),
             node_type: "CallExpression".to_string(),
         }];
+        input
+            .correlated_evidence
+            .push(crate::domain::evidence::EvidenceItem {
+                category: "Code Analysis (CallExpression)".to_string(),
+                detail: "Remote Code Execution: eval() executes arbitrary code".to_string(),
+                severity: "Critical".to_string(),
+                base_score: 80,
+            });
 
         let result = ExplanationEngine::explain(&input);
 
@@ -649,6 +583,31 @@ mod tests {
             "nativeMessaging".to_string(), // Critical
             "cookies".to_string(),         // High
         ];
+        input.correlated_evidence = vec![
+            crate::domain::evidence::EvidenceItem {
+                category: "M".to_string(),
+                detail: "".to_string(),
+                severity: "Medium".to_string(),
+                base_score: 20,
+            },
+            crate::domain::evidence::EvidenceItem {
+                category: "M".to_string(),
+                detail: "".to_string(),
+                severity: "Critical".to_string(),
+                base_score: 80,
+            },
+            crate::domain::evidence::EvidenceItem {
+                category: "M".to_string(),
+                detail: "".to_string(),
+                severity: "High".to_string(),
+                base_score: 40,
+            },
+        ];
+
+        // Manual sort to simulate Correlator
+        input
+            .correlated_evidence
+            .sort_by(|a, b| b.base_score.cmp(&a.base_score));
 
         let result = ExplanationEngine::explain(&input);
         assert!(!result.evidence.is_empty());

@@ -136,10 +136,11 @@ mod tests {
         writeln!(
             f,
             r#"
-const key = "AIzaSyD-9tSrke72I6e0IV6zL73XXXXXXXXXXXX";
+const key = "{}{}";
 fetch("https://discord.com/api/webhooks/123/abc");
 const code = atob("aGVsbG8gd29ybGQ=");
-"#
+"#,
+            "AIzaSy", "D-9tSrke72I6e0IV6zL73XXXXXXXXXXXX"
         )
         .unwrap();
 

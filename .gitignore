@@ -41,3 +41,11 @@ sandbox/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Local scan outputs and E2E artifacts
+e2e_output*.json
+*_report.md
+!docs/*_REPORT.md
+!README.md
+!SECURITY.md
+!OPEN_SOURCE_SECURITY_AUDIT.md

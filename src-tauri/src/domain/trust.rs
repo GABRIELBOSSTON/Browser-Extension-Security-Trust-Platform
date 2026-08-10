@@ -10,7 +10,7 @@ impl TrustRegistry {
             "ghbmnnjooekpmoecnnnilnnbdlolhkhi",
             // Add other known-good IDs here as needed
         ];
-        
+
         trusted_ids.contains(&extension_id)
     }
 }
@@ -21,7 +21,9 @@ mod tests {
 
     #[test]
     fn test_is_trusted() {
-        assert!(TrustRegistry::is_trusted("ghbmnnjooekpmoecnnnilnnbdlolhkhi"));
+        assert!(TrustRegistry::is_trusted(
+            "ghbmnnjooekpmoecnnnilnnbdlolhkhi"
+        ));
         assert!(!TrustRegistry::is_trusted("unknown_extension_id"));
     }
 }

@@ -16,10 +16,11 @@ pub mod risk_calculator;
 pub mod rule_matcher;
 pub mod rules;
 pub mod secret_detector;
-pub mod types;
 pub mod trust;
+pub mod types;
 
 pub use capabilities::*;
 pub use entities::*;
 pub use errors::*;
 pub use types::*;
+pub mod evidence;

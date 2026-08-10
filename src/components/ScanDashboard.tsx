@@ -57,6 +57,7 @@ export interface ExtensionAnalysisResponse {
   ast_findings?: ASTFinding[];
   ioc_findings?: IOCFinding[];
   vt_reports?: VirusTotalReport[];
+  trusted: boolean;
 }
 
 interface Evidence {
@@ -122,6 +123,9 @@ export function ScanDashboard() {
           permissions: ext.permissions,
           host_permissions: ext.host_permissions,
           ast_findings: ext.ast_findings ?? [],
+          ioc_findings: ext.ioc_findings ?? [],
+          vt_reports: ext.vt_reports ?? [],
+          trusted: ext.trusted ?? false,
         },
       });
       setExplanation(result);
@@ -222,8 +226,14 @@ export function ScanDashboard() {
                   <td className="px-6 py-4 font-medium text-slate-200">{ext.name}</td>
                   <td className="px-6 py-4">{ext.version}</td>
                   <td className="px-6 py-4">{ext.risk_score}</td>
-                  <td className={`px-6 py-4 ${getRiskColor(ext.risk_level)}`}>
+                  <td className={`px-6 py-4 flex items-center gap-2 ${getRiskColor(ext.risk_level)}`}>
                     {ext.risk_level}
+                    {ext.trusted && (
+                      <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded uppercase tracking-wider" title="Trusted Publisher">
+                        <ShieldCheck className="w-3 h-3" />
+                        Trusted
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -256,6 +266,12 @@ export function ScanDashboard() {
                     <span className={`px-2 py-1 text-xs font-bold rounded uppercase tracking-wider bg-slate-950 border border-slate-800 ${getRiskColor(selectedExt.risk_level)}`}>
                       {selectedExt.risk_level} ({selectedExt.risk_score})
                     </span>
+                    {selectedExt.trusted && (
+                      <span className="flex items-center gap-1 text-xs font-bold rounded uppercase tracking-wider px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30">
+                        <ShieldCheck className="w-4 h-4" />
+                        Trusted Publisher
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button

@@ -86,10 +86,10 @@ impl AstScannerService {
                                                 finding.location.column,
                                                 finding.message
                                             );
-                                            
+
                                             if !seen_identities.contains(&identity) {
                                                 seen_identities.insert(identity);
-                                                
+
                                                 let severity = finding
                                                     .metadata
                                                     .get("severity")

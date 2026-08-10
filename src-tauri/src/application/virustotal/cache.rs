@@ -21,7 +21,9 @@ impl VtCache {
             [],
         )?;
 
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     /// Retrieve a cached report for a given hash
